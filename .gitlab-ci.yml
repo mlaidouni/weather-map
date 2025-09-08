@@ -17,6 +17,7 @@ build :
 deploy:
   stage: deploy
   image: docker:24.0.5
+  privileged: true
   variables:
     DOCKER_HOST: "unix:///var/run/docker.sock"
   script:
