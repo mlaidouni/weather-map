@@ -1,0 +1,16 @@
+# Dockerfile.prod
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copier uniquement les fichiers nécessaires pour installer les dépendances
+COPY package.json package-lock.json ./
+RUN npm install --production
+
+COPY . .
+
+# Assure-toi que ton app écoute sur le port 80
+ENV PORT=80
+EXPOSE 80
+
+CMD ["npm", "dev"]

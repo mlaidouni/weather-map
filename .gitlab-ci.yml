@@ -3,6 +3,7 @@ image: node:20-alpine
 
 stages : 
   - build
+  - deploy
 
 
 build : 
@@ -12,3 +13,19 @@ build :
     - npm run build
   tags : 
     - weather-ci
+
+deploy:
+  stage: deploy
+  image: docker:24.0.5
+  services:
+    - docker:dind
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+  script:
+    # Construire l'image Docker du site
+    - docker build -t weathermap .
+    # Stopper et supprimer l'ancien container si il existe
+    - docker stop weathermap || true
+    - docker rm weathermap || true
+    # Lancer le container sur le port 80
+    - docker run -d --name weathermap -p 80:80 weathermap
