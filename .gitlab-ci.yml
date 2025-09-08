@@ -17,6 +17,8 @@ build :
 deploy:
   stage: deploy
   image: docker:24.0.5
+  variables:
+    DOCKER_HOST: "unix:///var/run/docker.sock"
   script:
     - docker info
     - docker build -t weathermap .
