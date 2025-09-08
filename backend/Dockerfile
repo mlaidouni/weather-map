@@ -16,6 +16,4 @@ ENV SPRING_DEVTOOLS_RESTART_ENABLED=true
 ENV SPRING_DEVTOOLS_LIVERELOAD_ENABLED=true
 
 # Run with spring-boot:run and enable file monitoring
-CMD ["mvn", "spring-boot:run", \
-     "-Dspring-boot.run.jvmArguments='-Dspring.devtools.restart.enabled=true -Dspring.devtools.livereload.enabled=true'", \
-     "-Dspring-boot.run.fork=false"]
+CMD ["mvn", "spring-boot:run"]
