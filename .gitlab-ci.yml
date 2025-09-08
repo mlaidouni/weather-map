@@ -20,5 +20,6 @@ deploy:
   variables:
     DOCKER_HOST: "unix:///var/run/docker.sock"
   script:
+    - docker info
     - docker build -t weathermap .
     - docker run -d -p 3000:3000 weathermap
