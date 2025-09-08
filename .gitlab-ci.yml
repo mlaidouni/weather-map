@@ -17,10 +17,8 @@ build :
 deploy:
   stage: deploy
   image: docker:24.0.5
-  services:
-    - docker:dind
   variables:
-    DOCKER_HOST: tcp://docker:2375
+    DOCKER_HOST: "unix:///var/run/docker.sock"
   script:
     # Construire l'image Docker du site
     - docker build -t weathermap .
