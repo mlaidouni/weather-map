@@ -14,6 +14,8 @@ import { LatLngExpression } from 'leaflet';
 interface MapProps {
   center: LatLngExpression;
   zoom: number;
+  showTempLayer?: boolean;
+  showRainLayer?: boolean;
 }
 
 interface MapSettingsUpdaterProps {
@@ -66,7 +68,9 @@ const MapResizeHandler: React.FC = () => {
  */
 const MapCard: React.FC<MapProps> = ({
   center,
-  zoom
+  zoom,
+  showTempLayer = false,
+  showRainLayer = false
 }) => {
   return (
     <div className="map-container w-full h-screen">
@@ -83,10 +87,24 @@ const MapCard: React.FC<MapProps> = ({
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url={'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'}
-        />     
+        />
+        {showTempLayer && (
+          <TileLayer
+            url="https://tile.openweathermap.org/map/temp_new/{z}/{x}/{y}.png?appid=d8a7a363d36b78b523581bb169ac3f0c"
+            attribution="&copy; OpenWeatherMap"
+            opacity={1.0}
+			
+          />
+        )}
+        {showRainLayer && (
+          <TileLayer
+            url="https://tile.openweathermap.org/map/precipitation_new/{z}/{x}/{y}.png?appid=d8a7a363d36b78b523581bb169ac3f0c"
+            attribution="&copy; OpenWeatherMap"
+            opacity={0.5}
+          />
+        )}
         <RecenterOnPropChange center={center} zoom={zoom} />
       </MapContainer>
-        
     </div>
   );
 };
