@@ -16,6 +16,23 @@ interface MapProps {
   zoom: number;
 }
 
+interface MapSettingsUpdaterProps {
+  useOnlineTiles: boolean;
+}
+function RecenterOnPropChange({ //Fonction qui permet de recentrer la carte dynamiquement 
+  center,
+  zoom,
+}: {
+  center: LatLngExpression;
+  zoom: number;
+}) {
+  const map = useMap();
+  useEffect(() => {
+    map.flyTo(center as any, zoom, { duration: 0.7 }); // ou map.setView(center as any, zoom)
+  }, [center, zoom, map]);
+  return null;
+}
+
 const MapResizeHandler: React.FC = () => {
   const map = useMap();
 
@@ -67,7 +84,9 @@ const MapCard: React.FC<MapProps> = ({
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url={'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'}
         />     
+        <RecenterOnPropChange center={center} zoom={zoom} />
       </MapContainer>
+        
     </div>
   );
 };
