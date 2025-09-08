@@ -1,0 +1,14 @@
+#Définition de l'image
+image: node:20-alpine
+
+stages : 
+  - build
+
+
+build : 
+  stage : build
+  script :
+    - npm install
+    - npm run build
+  tags : 
+    - ci-cd
