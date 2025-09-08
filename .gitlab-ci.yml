@@ -11,4 +11,4 @@ build :
     - npm install
     - npm run build
   tags : 
-    - ci-cd
+    - weather-ci
