@@ -18,6 +18,7 @@ interface MapProps {
   zoom: number;
   showTempLayer?: boolean;
   showRainLayer?: boolean;
+  listStops?: LatLngExpression[];
 }
 
 interface MapSettingsUpdaterProps {
@@ -72,7 +73,8 @@ const MapCard: React.FC<MapProps> = ({
   center,
   zoom,
   showTempLayer = false,
-  showRainLayer = false
+  showRainLayer = false,
+  listStops = [],
 }) => {
   return (
     <div className="map-container w-full h-screen">
@@ -104,6 +106,10 @@ const MapCard: React.FC<MapProps> = ({
             opacity={1.0}
           />
         )}
+        {listStops.length > 0 && (
+          <Polyline positions={listStops} color="red" />
+        )}
+        
         <RecenterOnPropChange center={center} zoom={zoom} />
       </MapContainer>
     </div>

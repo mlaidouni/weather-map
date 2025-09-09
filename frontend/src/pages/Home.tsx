@@ -122,6 +122,7 @@ const Home: React.FC = () => {
           zoom={zoom}
           showTempLayer={!!tempselected}
           showRainLayer={!!rainselected}
+          listStops={[[48.846951, 2.340645],[48.845090, 2.345575]]}
         />
       </div>
 
