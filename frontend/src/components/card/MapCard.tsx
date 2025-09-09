@@ -11,6 +11,8 @@ import {
 import 'leaflet/dist/leaflet.css';
 import { LatLngExpression } from 'leaflet';
 
+const apikey = import.meta.env.VITE_OPEN_WEATHER_API_KEY;
+
 interface MapProps {
   center: LatLngExpression;
   zoom: number;
@@ -90,17 +92,16 @@ const MapCard: React.FC<MapProps> = ({
         />
         {showTempLayer && (
           <TileLayer
-            url="https://tile.openweathermap.org/map/temp_new/{z}/{x}/{y}.png?appid=d8a7a363d36b78b523581bb169ac3f0c"
+            url={`https://tile.openweathermap.org/map/temp_new/{z}/{x}/{y}.png?appid=${apikey}`}
             attribution="&copy; OpenWeatherMap"
             opacity={1.0}
-			
           />
         )}
         {showRainLayer && (
           <TileLayer
-            url="https://tile.openweathermap.org/map/precipitation_new/{z}/{x}/{y}.png?appid=d8a7a363d36b78b523581bb169ac3f0c"
+            url={`https://tile.openweathermap.org/map/precipitation_new/{z}/{x}/{y}.png?appid=${apikey}`}
             attribution="&copy; OpenWeatherMap"
-            opacity={0.5}
+            opacity={1.0}
           />
         )}
         <RecenterOnPropChange center={center} zoom={zoom} />
