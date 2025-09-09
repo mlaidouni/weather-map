@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import MapCard from "../components/card/MapCard";
-import { LatLngExpression } from "leaflet";
+import L, { LatLngExpression } from "leaflet";
 import {
   Command,
   CommandEmpty,
@@ -13,6 +13,16 @@ import { ChevronRightIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import MapFilterCard from "@/components/card/MapFilterCard";
 import { useLocationSuggestions } from "../hooks/useLocationSuggestions";
+import { Marker } from "react-leaflet";
+
+const markerIcon = L.icon({
+  iconUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png",
+  shadowUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png",
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
+});
 
 // Import Sheet shadcn/ui
 import {
@@ -51,8 +61,7 @@ const Home: React.FC = () => {
           }`}
         />
       </Button>
-
-      {/* Barre de recherche */}
+      {/* Barre de recherche en haut à gauche */}
       <div
         className={`absolute top-4 left-16 z-10 transition-all duration-300 ${
           open ? "w-64 opacity-100" : "w-0 opacity-0"
@@ -71,10 +80,14 @@ const Home: React.FC = () => {
                   key={idx}
                   value={s.label}
                   onSelect={() => {
-                    setCenter(s.coordinates as LatLngExpression);
+                    // On masque les suggestions
+                    setOpen(false);
+                    const coord = s.coordinates as LatLngExpression;
+                    setCenter(coord);
                     setZoom(13);
                     setQuery(s.label);
                     setIsSheetOpen(true); // ouvrir la sheet
+                    // TODO: set Start Coord
                   }}
                 >
                   {s.label}
@@ -99,6 +112,8 @@ const Home: React.FC = () => {
           img={"pluie.png"}
         />
       </div>
+
+      {/* <Marker position={coord} icon={markerIcon} />; */}
 
       {/* Carte */}
       <div className="w-full h-full">
