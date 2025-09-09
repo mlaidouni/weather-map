@@ -1,8 +1,11 @@
-
-
 stages:
   - build
   - deploy
+
+variables:
+  DEPLOY_USER: "ubuntu"          # utilisateur SSH sur le VPS
+  DEPLOY_HOST: "37.187.49.205"        # IP ou domaine de ton VPS
+  DEPLOY_PATH: "/home/ubuntu"    # chemin où exécuter docker sur VPS
 
 # Build Front
 build_front:
@@ -12,6 +15,7 @@ build_front:
     - cd frontend
     - npm install
     - npm run build
+    - docker build -t weathermap-frontend .
   tags:
     - weather-ci
 
@@ -22,33 +26,35 @@ build_back:
   script:
     - cd backend
     - mvn package
+    - docker build -t weathermap-backend .
   tags:
     - weather-ci
 
-# Deploy (les deux)
+# Deploy sur le VPS via SSH
 deploy:
   stage: deploy
-  image: docker:24.0.5
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache openssh-client
+    - mkdir -p ~/.ssh
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    - ssh-keyscan $DEPLOY_HOST >> ~/.ssh/known_hosts
   script:
-    # Suppression des conteneurs existants
-    - docker stop weathermap-frontend || true
-    - docker rm weathermap-frontend || true
-    - docker stop weathermap-backend || true
-    - docker rm weathermap-backend || true
-    
-    # FRONT
-    - cd frontend
-    - docker build -t weathermap-frontend .
+    # Pousser les images sur le VPS et lancer les conteneurs
+    - scp -r frontend/Dockerfile backend/Dockerfile $DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH
+    - ssh $DEPLOY_USER@$DEPLOY_HOST << 'EOF'
+        # Build et run des conteneurs
+    - docker build -t weathermap-frontend $DEPLOY_PATH/frontend
     - docker stop weathermap-frontend || true
     - docker rm weathermap-frontend || true
     - docker run -d --name weathermap-frontend -p 3000:3000 --restart unless-stopped weathermap-frontend
 
-    # BACK
-    - cd ../backend
-    - docker build -t weathermap-backend .
+    - docker build -t weathermap-backend $DEPLOY_PATH/backend
     - docker stop weathermap-backend || true
     - docker rm weathermap-backend || true
     - docker run -d --name weathermap-backend -p 8080:8080 --restart unless-stopped weathermap-backend
+      EOF
   tags:
     - weather-ci
   needs:
