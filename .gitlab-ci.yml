@@ -30,6 +30,12 @@ deploy:
   stage: deploy
   image: docker:24.0.5
   script:
+    # Suppression des conteneurs existants
+    - docker stop weathermap-frontend || true
+    - docker rm weathermap-frontend || true
+    - docker stop weathermap-backend || true
+    - docker rm weathermap-backend || true
+    
     # FRONT
     - cd frontend
     - docker build -t weathermap-frontend .
