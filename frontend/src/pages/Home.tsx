@@ -1,33 +1,50 @@
 import React, { useState } from "react";
 import MapCard from "../components/card/MapCard";
-import { LatLngExpression } from "leaflet";
-import { Command, CommandInput } from "@/components/ui/command";
+import L, { LatLngExpression } from "leaflet";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { ChevronRightIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import MapFilterCard from "@/components/card/MapFilterCard";
+import { useLocationSuggestions } from "../hooks/useLocationSuggestions";
+import { Marker } from "react-leaflet";
 
-const cities: Record<string, LatLngExpression> = {
-  paris: [48.8566, 2.3522],
-  lyon: [45.764, 4.8357],
-  marseille: [43.2965, 5.3698],
-};
+const markerIcon = L.icon({
+  iconUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png",
+  shadowUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png",
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
+});
+
+// Import Sheet shadcn/ui
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 
 const Home: React.FC = () => {
   const [center, setCenter] = useState<LatLngExpression>([48.86, 2.33]);
   const [zoom, setZoom] = useState(12);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(false); // toggle barre de recherche
   const [query, setQuery] = useState("");
+
   const [tempselected, setTempSelected] = useState(0);
   const [rainselected, setRainSelected] = useState(0);
 
-  const handleSearch = (value: string) => {
-    const key = value.toLowerCase().trim();
-    if (cities[key]) {
-      setCenter(cities[key]);
-      setZoom(13);
-    }
-  };
+  // état pour la Sheet
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
+
+  const suggestions = useLocationSuggestions(query);
 
   return (
     <div className="relative w-full h-full">
@@ -44,7 +61,6 @@ const Home: React.FC = () => {
           }`}
         />
       </Button>
-
       {/* Barre de recherche en haut à gauche */}
       <div
         className={`absolute top-4 left-16 z-10 transition-all duration-300 ${
@@ -56,15 +72,34 @@ const Home: React.FC = () => {
             placeholder="Search city..."
             value={query}
             onValueChange={setQuery}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                handleSearch(query);
-              }
-            }}
           />
+          <CommandList>
+            <CommandGroup heading="Suggestions">
+              {suggestions.map((s, idx) => (
+                <CommandItem
+                  key={idx}
+                  value={s.label}
+                  onSelect={() => {
+                    // On masque les suggestions
+                    setOpen(false);
+                    const coord = s.coordinates as LatLngExpression;
+                    setCenter(coord);
+                    setZoom(13);
+                    setQuery(s.label);
+                    setIsSheetOpen(true); // ouvrir la sheet
+                    // TODO: set Start Coord
+                  }}
+                >
+                  {s.label}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+            <CommandEmpty>No results found.</CommandEmpty>
+          </CommandList>
         </Command>
       </div>
+
+      {/* Filtres */}
       <div className="absolute top-4 right-20 z-10 flex flex-row gap-2">
         <MapFilterCard
           setSelected={setTempSelected}
@@ -78,6 +113,9 @@ const Home: React.FC = () => {
         />
       </div>
 
+      {/* <Marker position={coord} icon={markerIcon} />; */}
+
+      {/* Carte */}
       <div className="w-full h-full">
         <MapCard
           center={center}
@@ -86,6 +124,15 @@ const Home: React.FC = () => {
           showRainLayer={!!rainselected}
         />
       </div>
+
+      {/* Sheet vierge */}
+      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+        <SheetContent side="left" className="w-[380px] sm:w-[420px]">
+          <SheetHeader>
+            <SheetTitle>{query}</SheetTitle>
+          </SheetHeader>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 };
