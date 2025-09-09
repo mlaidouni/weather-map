@@ -1,4 +1,4 @@
-image: node:20-alpine
+
 
 stages:
   - build
@@ -6,6 +6,7 @@ stages:
 
 # Build Front
 build_front:
+  image: node:20-alpine
   stage: build
   script:
     - cd frontend
@@ -20,6 +21,7 @@ build_front:
 
 # Build Back
 build_back:
+  image: maven:3.9.9-amazoncorretto-17-alpine
   stage: build
   script:
     - cd backend
