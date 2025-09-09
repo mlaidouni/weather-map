@@ -45,10 +45,13 @@ const Home: React.FC = () => {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
 
   const suggestions = useLocationSuggestions(query);
-  const [startPin, setStartPin] = useState<LatLngExpression | null>(null);
-  const [endPin, setEndPin] = useState<LatLngExpression | null>(null);
+  const [startCoord, setStartCoord] = useState<LatLngExpression | null>(null);
+  const [endCoord, setEndCoord] = useState<LatLngExpression | null>(null);
   const [routePath, setRoutePath] = useState<LatLngExpression[]>([]);
-  const [routeInfo, setRouteInfo] = useState<{ distance?: number, duration?: number }>({});
+  const [routeInfo, setRouteInfo] = useState<{
+    distance?: number;
+    duration?: number;
+  }>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -56,12 +59,12 @@ const Home: React.FC = () => {
     const { lat, lng } = e.latlng;
 
     // Si le point de départ n'est pas défini, on le définit
-    if (!startPin) {
-      setStartPin([lat, lng]);
+    if (!startCoord) {
+      setStartCoord([lat, lng]);
     }
     // Sinon, si le point d'arrivée n'est pas défini, on le définit
-    else if (!endPin) {
-      setEndPin([lat, lng]);
+    else if (!endCoord) {
+      setEndCoord([lat, lng]);
     }
     // Si les deux sont définis, on réinitialise le point de départ et on efface le point d'arrivée
     else {
@@ -70,8 +73,8 @@ const Home: React.FC = () => {
   };
 
   const clearPoints = () => {
-    setStartPin(null);
-    setEndPin(null);
+    setStartCoord(null);
+    setEndCoord(null);
     setRoutePath([]);
     setRouteInfo({});
     setError(null);
@@ -79,21 +82,21 @@ const Home: React.FC = () => {
 
   // Appel au backend pour calculer l'itinéraire quand les deux pins sont définis
   useEffect(() => {
-    if (startPin && endPin) {
+    if (startCoord && endCoord) {
       fetchRoute();
     }
-  }, [startPin, endPin]);
+  }, [startCoord, endCoord]);
 
   const fetchRoute = async () => {
-    if (!startPin || !endPin) return;
+    if (!startCoord || !endCoord) return;
 
     setLoading(true);
     setError(null);
 
     try {
       // Conversion des pins en coordonnées lat/lng pour l'API
-      const startLatLng = L.latLng(startPin);
-      const endLatLng = L.latLng(endPin);
+      const startLatLng = L.latLng(startCoord);
+      const endLatLng = L.latLng(endCoord);
 
       // Construction de l'URL avec les paramètres
       const url = `/api/routing/weather-aware?startLat=${startLatLng.lat}&startLng=${startLatLng.lng}&endLat=${endLatLng.lat}&endLng=${endLatLng.lng}`;
@@ -109,13 +112,17 @@ const Home: React.FC = () => {
       // Traitement des données de l'itinéraire
       if (data.coordinates && Array.isArray(data.coordinates)) {
         // Conversion des coordonnées au format Leaflet (inversé par rapport à l'API)
-        const path = data.coordinates.map((coord: number[]) => [coord[1], coord[0]] as LatLngExpression);
+        const path = data.coordinates.map(
+          (coord: number[]) => [coord[1], coord[0]] as LatLngExpression
+        );
         setRoutePath(path);
 
         // Extraction des informations sur l'itinéraire
         setRouteInfo({
-          distance: data.distance ? Math.round(data.distance / 1000 * 10) / 10 : undefined, // en km
-          duration: data.duration ? Math.round(data.duration / 60) : undefined // en minutes
+          distance: data.distance
+            ? Math.round((data.distance / 1000) * 10) / 10
+            : undefined, // en km
+          duration: data.duration ? Math.round(data.duration / 60) : undefined, // en minutes
         });
       } else {
         setError("Format de données invalide");
@@ -128,7 +135,6 @@ const Home: React.FC = () => {
     }
   };
 
-
   return (
     <div className="relative w-full h-full">
       {/* Bouton toggle pour la barre de recherche */}
@@ -139,14 +145,16 @@ const Home: React.FC = () => {
         onClick={() => setOpen((prev) => !prev)}
       >
         <ChevronRightIcon
-          className={`transition-transform duration-300 ${open ? "rotate-90" : ""
-            }`}
+          className={`transition-transform duration-300 ${
+            open ? "rotate-90" : ""
+          }`}
         />
       </Button>
       {/* Barre de recherche en haut à gauche */}
       <div
-        className={`absolute top-4 left-16 z-10 transition-all duration-300 ${open ? "w-64 opacity-100" : "w-0 opacity-0"
-          } overflow-hidden`}
+        className={`absolute top-4 left-16 z-10 transition-all duration-300 ${
+          open ? "w-64 opacity-100" : "w-0 opacity-0"
+        } overflow-hidden`}
       >
         <Command>
           <CommandInput
@@ -202,8 +210,8 @@ const Home: React.FC = () => {
           showTempLayer={!!tempselected}
           showRainLayer={!!rainselected}
           listStops={routePath.length > 0 ? routePath : []}
-          startPin={startPin}
-          endPin={endPin}
+          startCoord={startCoord}
+          endCoord={endCoord}
           onMapClick={handleMapClick}
         />
       </div>
