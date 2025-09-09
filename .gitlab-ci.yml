@@ -8,28 +8,28 @@ stages:
 build_front:
   stage: build
   script:
-    - cd front
+    - cd frontend
     - npm install
     - npm run build
   tags:
     - weather-ci
   artifacts:
     paths:
-      - front/build/
+      - frontend/build/
     expire_in: 10 minutes
 
 # Build Back
 build_back:
   stage: build
   script:
-    - cd back
+    - cd backend
     - npm install
     - npm run build
   tags:
     - weather-ci
   artifacts:
     paths:
-      - back/dist/
+      - backend/dist/
     expire_in: 10 minutes
 
 # Deploy (les deux)
@@ -38,18 +38,18 @@ deploy:
   image: docker:24.0.5
   script:
     # FRONT
-    - cd front
-    - docker build -t weathermap-front .
-    - docker stop weathermap-front || true
-    - docker rm weathermap-front || true
-    - docker run -d --name weathermap-front -p 3000:3000 --restart unless-stopped weathermap-front
+    - cd frontend
+    - docker build -t weathermap-frontend .
+    - docker stop weathermap-frontend || true
+    - docker rm weathermap-frontend || true
+    - docker run -d --name weathermap-frontend -p 3000:3000 --restart unless-stopped weathermap-frontend
 
     # BACK
-    - cd ../back
-    - docker build -t weathermap-back .
-    - docker stop weathermap-back || true
-    - docker rm weathermap-back || true
-    - docker run -d --name weathermap-back -p 8080:8080 --restart unless-stopped weathermap-back
+    - cd ../backend
+    - docker build -t weathermap-backend .
+    - docker stop weathermap-backend || true
+    - docker rm weathermap-backend || true
+    - docker run -d --name weathermap-backend -p 8080:8080 --restart unless-stopped weathermap-backend
   tags:
     - weather-ci
   needs:
