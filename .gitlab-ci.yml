@@ -14,10 +14,6 @@ build_front:
     - npm run build
   tags:
     - weather-ci
-  artifacts:
-    paths:
-      - frontend/build/
-    expire_in: 10 minutes
 
 # Build Back
 build_back:
@@ -25,13 +21,9 @@ build_back:
   stage: build
   script:
     - cd backend
-    - mvn spring-boot:run
+    - mvn package
   tags:
     - weather-ci
-  artifacts:
-    paths:
-      - backend/dist/
-    expire_in: 10 minutes
 
 # Deploy (les deux)
 deploy:
