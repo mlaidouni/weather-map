@@ -1,26 +1,38 @@
 import React, { useState } from "react";
 import MapCard from "../components/card/MapCard";
 import { LatLngExpression } from "leaflet";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { ChevronRightIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import MapFilterCard from "@/components/card/MapFilterCard";
 import { useLocationSuggestions } from "../hooks/useLocationSuggestions";
 
-const cities: Record<string, LatLngExpression> = {
-  paris: [48.8566, 2.3522],
-  lyon: [45.764, 4.8357],
-  marseille: [43.2965, 5.3698],
-};
+// Import Sheet shadcn/ui
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 
 const Home: React.FC = () => {
   const [center, setCenter] = useState<LatLngExpression>([48.86, 2.33]);
   const [zoom, setZoom] = useState(12);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(false); // toggle barre de recherche
   const [query, setQuery] = useState("");
+
   const [tempselected, setTempSelected] = useState(0);
   const [rainselected, setRainSelected] = useState(0);
+
+  // état pour la Sheet
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
 
   const suggestions = useLocationSuggestions(query);
 
@@ -40,7 +52,7 @@ const Home: React.FC = () => {
         />
       </Button>
 
-      {/* Barre de recherche en haut à gauche */}
+      {/* Barre de recherche */}
       <div
         className={`absolute top-4 left-16 z-10 transition-all duration-300 ${
           open ? "w-64 opacity-100" : "w-0 opacity-0"
@@ -52,7 +64,6 @@ const Home: React.FC = () => {
             value={query}
             onValueChange={setQuery}
           />
-          {/* Suggestions */}
           <CommandList>
             <CommandGroup heading="Suggestions">
               {suggestions.map((s, idx) => (
@@ -60,19 +71,22 @@ const Home: React.FC = () => {
                   key={idx}
                   value={s.label}
                   onSelect={() => {
-                    setCenter(s.coordinates as LatLngExpression); 
+                    setCenter(s.coordinates as LatLngExpression);
                     setZoom(13);
                     setQuery(s.label);
+                    setIsSheetOpen(true); // ouvrir la sheet
                   }}
                 >
                   {s.label}
                 </CommandItem>
               ))}
             </CommandGroup>
-			<CommandEmpty>No results found.</CommandEmpty>
+            <CommandEmpty>No results found.</CommandEmpty>
           </CommandList>
         </Command>
       </div>
+
+      {/* Filtres */}
       <div className="absolute top-4 right-20 z-10 flex flex-row gap-2">
         <MapFilterCard
           setSelected={setTempSelected}
@@ -86,6 +100,7 @@ const Home: React.FC = () => {
         />
       </div>
 
+      {/* Carte */}
       <div className="w-full h-full">
         <MapCard
           center={center}
@@ -94,6 +109,15 @@ const Home: React.FC = () => {
           showRainLayer={!!rainselected}
         />
       </div>
+
+      {/* Sheet vierge */}
+      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+        <SheetContent side="left" className="w-[380px] sm:w-[420px]">
+          <SheetHeader>
+            <SheetTitle>{query}</SheetTitle>
+          </SheetHeader>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 };
