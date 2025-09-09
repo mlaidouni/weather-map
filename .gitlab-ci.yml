@@ -1,0 +1,29 @@
+image: node:20-alpine
+
+stages:
+  - build
+  - deploy
+
+build:
+  stage: build
+  script:
+    - npm install
+    - npm run build
+  tags:
+    - weather-ci
+  artifacts:
+    paths:
+      - build/
+    expire_in : 5 minutes
+
+deploy:
+  stage: deploy
+  image: docker:24.0.5
+  script:
+    - docker build -t weathermap .
+    - docker stop weathermap || true
+    - docker rm weathermap || true
+    # Démarre le conteneur sans monter /builds depuis le runner
+    - docker run -d --name weathermap -p 3000:3000 --restart unless-stopped weathermap
+  tags:
+    - weather-ci
