@@ -1,7 +1,13 @@
 import React, { useState } from "react";
 import MapCard from "../components/card/MapCard";
 import { LatLngExpression } from "leaflet";
-import { Command, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import {
+  Command,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { ChevronRightIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -79,7 +85,7 @@ const Home: React.FC = () => {
                   key={idx}
                   value={s.label}
                   onSelect={() => {
-					setCenter(s.coordinates as LatLngExpression);
+                    setCenter(s.coordinates as LatLngExpression); 
                     setZoom(13);
                     setQuery(s.label);
                   }}
