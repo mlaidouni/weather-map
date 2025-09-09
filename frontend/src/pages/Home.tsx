@@ -1,11 +1,12 @@
 import React, { useState } from "react";
 import MapCard from "../components/card/MapCard";
 import { LatLngExpression } from "leaflet";
-import { Command, CommandInput } from "@/components/ui/command";
+import { Command, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { ChevronRightIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import MapFilterCard from "@/components/card/MapFilterCard";
+import { useLocationSuggestions } from "../hooks/useLocationSuggestions";
 
 const cities: Record<string, LatLngExpression> = {
   paris: [48.8566, 2.3522],
@@ -21,12 +22,19 @@ const Home: React.FC = () => {
   const [tempselected, setTempSelected] = useState(0);
   const [rainselected, setRainSelected] = useState(0);
 
+  const suggestions = useLocationSuggestions(query);
+
   const handleSearch = (value: string) => {
     const key = value.toLowerCase().trim();
-    if (cities[key]) {
-      setCenter(cities[key]);
-      setZoom(13);
-    }
+    // const found = suggestions.find((s) => s.label.toLowerCase().includes(key));
+    // if (found) {
+    //   // FIXME:
+    //   setCenter(found.coordinates);
+    //   setZoom(13);
+    // } else if (cities[key]) {
+    //   setCenter(cities[key]);
+    //   setZoom(13);
+    // }
   };
 
   return (
@@ -63,6 +71,24 @@ const Home: React.FC = () => {
               }
             }}
           />
+          {/* Suggestions */}
+          <CommandList>
+            <CommandGroup heading="Suggestions">
+              {suggestions.map((s, idx) => (
+                <CommandItem
+                  key={idx}
+                  value={s.label}
+                  onSelect={() => {
+					setCenter(s.coordinates as LatLngExpression);
+                    setZoom(13);
+                    setQuery(s.label);
+                  }}
+                >
+                  {s.label}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
         </Command>
       </div>
       <div className="absolute top-4 right-20 z-10 flex flex-row gap-2">

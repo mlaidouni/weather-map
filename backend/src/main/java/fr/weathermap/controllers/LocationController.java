@@ -22,12 +22,12 @@ public class LocationController {
 		this.restTemplate = restTemplate;
 	}
 
-	@GetMapping("/current")
-	public Map<String, Object> getLocationPossibilities(
+	@GetMapping("/search")
+	public Map<String, Object> getLocationSuggestion(
 			@RequestParam(required = true, defaultValue = "") String query) {
 
 		final String url = "https://data.geopf.fr/geocodage/search?q=" + query
-				+ "&autocomplete=1&index=address,poi&limit=20";
+				+ "&autocomplete=1&index=address,poi&limit=10";
 
 		Map<String, Object> response = restTemplate.getForObject(url, Map.class);
 
