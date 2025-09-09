@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import MapCard from "../components/card/MapCard";
 import L, { LatLngExpression } from "leaflet";
 import {
@@ -45,6 +45,89 @@ const Home: React.FC = () => {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
 
   const suggestions = useLocationSuggestions(query);
+  const [startPin, setStartPin] = useState<LatLngExpression | null>(null);
+  const [endPin, setEndPin] = useState<LatLngExpression | null>(null);
+  const [routePath, setRoutePath] = useState<LatLngExpression[]>([]);
+  const [routeInfo, setRouteInfo] = useState<{ distance?: number, duration?: number }>({});
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleMapClick = (e: any) => {
+    const { lat, lng } = e.latlng;
+
+    // Si le point de départ n'est pas défini, on le définit
+    if (!startPin) {
+      setStartPin([lat, lng]);
+    }
+    // Sinon, si le point d'arrivée n'est pas défini, on le définit
+    else if (!endPin) {
+      setEndPin([lat, lng]);
+    }
+    // Si les deux sont définis, on réinitialise le point de départ et on efface le point d'arrivée
+    else {
+      clearPoints();
+    }
+  };
+
+  const clearPoints = () => {
+    setStartPin(null);
+    setEndPin(null);
+    setRoutePath([]);
+    setRouteInfo({});
+    setError(null);
+  };
+
+  // Appel au backend pour calculer l'itinéraire quand les deux pins sont définis
+  useEffect(() => {
+    if (startPin && endPin) {
+      fetchRoute();
+    }
+  }, [startPin, endPin]);
+
+  const fetchRoute = async () => {
+    if (!startPin || !endPin) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Conversion des pins en coordonnées lat/lng pour l'API
+      const startLatLng = L.latLng(startPin);
+      const endLatLng = L.latLng(endPin);
+
+      // Construction de l'URL avec les paramètres
+      const url = `/api/routing/weather-aware?startLat=${startLatLng.lat}&startLng=${startLatLng.lng}&endLat=${endLatLng.lat}&endLng=${endLatLng.lng}`;
+
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error(`Erreur API: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      // Traitement des données de l'itinéraire
+      if (data.coordinates && Array.isArray(data.coordinates)) {
+        // Conversion des coordonnées au format Leaflet (inversé par rapport à l'API)
+        const path = data.coordinates.map((coord: number[]) => [coord[1], coord[0]] as LatLngExpression);
+        setRoutePath(path);
+
+        // Extraction des informations sur l'itinéraire
+        setRouteInfo({
+          distance: data.distance ? Math.round(data.distance / 1000 * 10) / 10 : undefined, // en km
+          duration: data.duration ? Math.round(data.duration / 60) : undefined // en minutes
+        });
+      } else {
+        setError("Format de données invalide");
+      }
+    } catch (err) {
+      console.error("Erreur lors de la récupération de l'itinéraire:", err);
+      setError("Impossible de calculer l'itinéraire");
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
   return (
     <div className="relative w-full h-full">
@@ -56,16 +139,14 @@ const Home: React.FC = () => {
         onClick={() => setOpen((prev) => !prev)}
       >
         <ChevronRightIcon
-          className={`transition-transform duration-300 ${
-            open ? "rotate-90" : ""
-          }`}
+          className={`transition-transform duration-300 ${open ? "rotate-90" : ""
+            }`}
         />
       </Button>
       {/* Barre de recherche en haut à gauche */}
       <div
-        className={`absolute top-4 left-16 z-10 transition-all duration-300 ${
-          open ? "w-64 opacity-100" : "w-0 opacity-0"
-        } overflow-hidden`}
+        className={`absolute top-4 left-16 z-10 transition-all duration-300 ${open ? "w-64 opacity-100" : "w-0 opacity-0"
+          } overflow-hidden`}
       >
         <Command>
           <CommandInput
@@ -113,8 +194,6 @@ const Home: React.FC = () => {
         />
       </div>
 
-      {/* <Marker position={coord} icon={markerIcon} />; */}
-
       {/* Carte */}
       <div className="w-full h-full">
         <MapCard
@@ -122,6 +201,10 @@ const Home: React.FC = () => {
           zoom={zoom}
           showTempLayer={!!tempselected}
           showRainLayer={!!rainselected}
+          listStops={routePath.length > 0 ? routePath : []}
+          startPin={startPin}
+          endPin={endPin}
+          onMapClick={handleMapClick}
         />
       </div>
 
