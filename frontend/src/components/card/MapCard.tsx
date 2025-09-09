@@ -11,9 +11,30 @@ import {
 import 'leaflet/dist/leaflet.css';
 import { LatLngExpression } from 'leaflet';
 
+const apikey = import.meta.env.VITE_OPEN_WEATHER_API_KEY;
+
 interface MapProps {
   center: LatLngExpression;
   zoom: number;
+  showTempLayer?: boolean;
+  showRainLayer?: boolean;
+}
+
+interface MapSettingsUpdaterProps {
+  useOnlineTiles: boolean;
+}
+function RecenterOnPropChange({ //Fonction qui permet de recentrer la carte dynamiquement 
+  center,
+  zoom,
+}: {
+  center: LatLngExpression;
+  zoom: number;
+}) {
+  const map = useMap();
+  useEffect(() => {
+    map.flyTo(center as any, zoom, { duration: 0.7 }); // ou map.setView(center as any, zoom)
+  }, [center, zoom, map]);
+  return null;
 }
 
 const MapResizeHandler: React.FC = () => {
@@ -49,7 +70,9 @@ const MapResizeHandler: React.FC = () => {
  */
 const MapCard: React.FC<MapProps> = ({
   center,
-  zoom
+  zoom,
+  showTempLayer = false,
+  showRainLayer = false
 }) => {
   return (
     <div className="map-container w-full h-screen">
@@ -66,7 +89,22 @@ const MapCard: React.FC<MapProps> = ({
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url={'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'}
-        />     
+        />
+        {showTempLayer && (
+          <TileLayer
+            url={`https://tile.openweathermap.org/map/temp_new/{z}/{x}/{y}.png?appid=${apikey}`}
+            attribution="&copy; OpenWeatherMap"
+            opacity={1.0}
+          />
+        )}
+        {showRainLayer && (
+          <TileLayer
+            url={`https://tile.openweathermap.org/map/precipitation_new/{z}/{x}/{y}.png?appid=${apikey}`}
+            attribution="&copy; OpenWeatherMap"
+            opacity={1.0}
+          />
+        )}
+        <RecenterOnPropChange center={center} zoom={zoom} />
       </MapContainer>
     </div>
   );
