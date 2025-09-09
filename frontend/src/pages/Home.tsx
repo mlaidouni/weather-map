@@ -1,13 +1,7 @@
 import React, { useState } from "react";
 import MapCard from "../components/card/MapCard";
 import { LatLngExpression } from "leaflet";
-import {
-  Command,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { ChevronRightIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -29,19 +23,6 @@ const Home: React.FC = () => {
   const [rainselected, setRainSelected] = useState(0);
 
   const suggestions = useLocationSuggestions(query);
-
-  const handleSearch = (value: string) => {
-    const key = value.toLowerCase().trim();
-    // const found = suggestions.find((s) => s.label.toLowerCase().includes(key));
-    // if (found) {
-    //   // FIXME:
-    //   setCenter(found.coordinates);
-    //   setZoom(13);
-    // } else if (cities[key]) {
-    //   setCenter(cities[key]);
-    //   setZoom(13);
-    // }
-  };
 
   return (
     <div className="relative w-full h-full">
@@ -70,12 +51,6 @@ const Home: React.FC = () => {
             placeholder="Search city..."
             value={query}
             onValueChange={setQuery}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                handleSearch(query);
-              }
-            }}
           />
           {/* Suggestions */}
           <CommandList>
@@ -94,6 +69,7 @@ const Home: React.FC = () => {
                 </CommandItem>
               ))}
             </CommandGroup>
+			<CommandEmpty>No results found.</CommandEmpty>
           </CommandList>
         </Command>
       </div>
