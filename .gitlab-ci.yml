@@ -60,3 +60,5 @@ deploy:
     - build_back
   tags:
     - weather-ci
+  only : 
+    - main
