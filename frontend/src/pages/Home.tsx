@@ -34,6 +34,7 @@ type MeteoData = {
   temperature_unit?: string;
   windSpeed?: number;
   windSpeed_unit?: string;
+  precipitation?: number;
 };
 
 const markerIcon = L.icon({
@@ -200,7 +201,10 @@ const Home: React.FC = () => {
 
                     try {
                       const [lat, lon] = s.coordinates as [number, number];
-                      const data: MeteoData = await fetchMeteoFromLocation(lat, lon);
+                      const data: MeteoData = await fetchMeteoFromLocation(
+                        lat,
+                        lon
+                      );
                       setMeteo(data);
                     } catch (e) {
                       console.error(e);
@@ -256,10 +260,12 @@ const Home: React.FC = () => {
           <SheetHeader>
             <SheetTitle>{query || "Météo"}</SheetTitle>
           </SheetHeader>
-              
+
           <div className="mt-4 space-y-3">
             {meteoLoading && (
-              <div className="text-sm text-muted-foreground">Chargement de la météo…</div>
+              <div className="text-sm text-muted-foreground">
+                Chargement de la météo…
+              </div>
             )}
 
             {meteoError && (
@@ -269,10 +275,14 @@ const Home: React.FC = () => {
             {!meteoLoading && !meteoError && meteo && (
               <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-2xl border p-3 shadow-sm">
-                  <div className="text-xs text-muted-foreground">Température</div>
+                  <div className="text-xs text-muted-foreground">
+                    Température
+                  </div>
                   <div className="text-xl font-semibold">
                     {meteo.temperature ?? "-"}
-                    {meteo.temperature_unit ? ` ${meteo.temperature_unit}` : " °C"}
+                    {meteo.temperature_unit
+                      ? ` ${meteo.temperature_unit}`
+                      : " °C"}
                   </div>
                 </div>
 
@@ -288,7 +298,18 @@ const Home: React.FC = () => {
                   <div className="text-xs text-muted-foreground">Vent</div>
                   <div className="text-xl font-semibold">
                     {meteo.windSpeed ?? "-"}
-                    {meteo.windSpeed_unit ? ` ${meteo.windSpeed_unit}` : " km/h"}
+                    {meteo.windSpeed_unit
+                      ? ` ${meteo.windSpeed_unit}`
+                      : " km/h"}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border p-3 shadow-sm">
+                  <div className="text-xs text-muted-foreground">
+                    Précipitations (dernière heure)
+                  </div>
+                  <div className="text-xl font-semibold">
+                    {meteo.precipitation ?? "-"} mm
                   </div>
                 </div>
               </div>
