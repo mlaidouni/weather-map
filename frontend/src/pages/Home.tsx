@@ -15,6 +15,27 @@ import MapFilterCard from "@/components/card/MapFilterCard";
 import { useLocationSuggestions } from "../hooks/useLocationSuggestions";
 import { Marker } from "react-leaflet";
 
+// Import Sheet shadcn/ui
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { fetchMeteoFromLocation } from "@/api/meteo";
+
+// ---- Types pour la météo ----
+type MeteoData = {
+  humidity?: number;
+  humidity_unit?: string;
+  latitude?: number;
+  longitude?: number;
+  temperature?: number;
+  temperature_unit?: string;
+  windSpeed?: number;
+  windSpeed_unit?: string;
+};
+
 const markerIcon = L.icon({
   iconUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png",
   shadowUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png",
@@ -24,18 +45,10 @@ const markerIcon = L.icon({
   shadowSize: [41, 41],
 });
 
-// Import Sheet shadcn/ui
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
-
 const Home: React.FC = () => {
   const [center, setCenter] = useState<LatLngExpression>([48.86, 2.33]);
   const [zoom, setZoom] = useState(12);
-  const [open, setOpen] = useState(false); // toggle barre de recherche
+  const [open, setOpen] = useState(true); // toggle barre de recherche
   const [query, setQuery] = useState("");
 
   const [tempselected, setTempSelected] = useState(0);
@@ -43,6 +56,11 @@ const Home: React.FC = () => {
 
   // état pour la Sheet
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+
+  // ---- états météo ----
+  const [meteo, setMeteo] = useState<MeteoData | null>(null);
+  const [meteoLoading, setMeteoLoading] = useState(false);
+  const [meteoError, setMeteoError] = useState<string | null>(null);
 
   const suggestions = useLocationSuggestions(query);
   const [startCoord, setStartCoord] = useState<LatLngExpression | null>(null);
@@ -102,22 +120,16 @@ const Home: React.FC = () => {
       const url = `/api/routing/weather-aware?startLat=${startLatLng.lat}&startLng=${startLatLng.lng}&endLat=${endLatLng.lat}&endLng=${endLatLng.lng}`;
 
       const response = await fetch(url);
-
-      if (!response.ok) {
-        throw new Error(`Erreur API: ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`Erreur API: ${response.status}`);
 
       const data = await response.json();
 
-      // Traitement des données de l'itinéraire
       if (data.coordinates && Array.isArray(data.coordinates)) {
         // Conversion des coordonnées au format Leaflet (inversé par rapport à l'API)
         const path = data.coordinates.map(
           (coord: number[]) => [coord[1], coord[0]] as LatLngExpression
         );
         setRoutePath(path);
-
-        // Extraction des informations sur l'itinéraire
         setRouteInfo({
           distance: data.distance
             ? Math.round((data.distance / 1000) * 10) / 10
@@ -135,6 +147,7 @@ const Home: React.FC = () => {
     }
   };
 
+  // ---------- RENDER ----------
   return (
     <div className="relative w-full h-full">
       {/* Bouton toggle pour la barre de recherche */}
@@ -150,6 +163,7 @@ const Home: React.FC = () => {
           }`}
         />
       </Button>
+
       {/* Barre de recherche en haut à gauche */}
       <div
         className={`absolute top-4 left-16 z-10 transition-all duration-300 ${
@@ -168,15 +182,35 @@ const Home: React.FC = () => {
                 <CommandItem
                   key={idx}
                   value={s.label}
-                  onSelect={() => {
-                    // On masque les suggestions
+                  onSelect={async () => {
+                    // Ferme les suggestions
                     setOpen(false);
-                    const coord = s.coordinates as LatLngExpression;
+
+                    // Centre la carte
+                    const coord = s.coordinates as LatLngExpression; // [lat, lon]
                     setCenter(coord);
                     setZoom(13);
                     setQuery(s.label);
-                    setIsSheetOpen(true); // ouvrir la sheet
-                    // TODO: set Start Coord
+
+                    // Ouvre la sheet et prépare affichage
+                    setIsSheetOpen(true);
+                    setMeteo(null);
+                    setMeteoError(null);
+                    setMeteoLoading(true);
+
+                    try {
+                      const [lat, lon] = s.coordinates as [number, number];
+                      const data: MeteoData = await fetchMeteoFromLocation(lat, lon);
+                      setMeteo(data);
+                    } catch (e) {
+                      console.error(e);
+                      setMeteoError("Impossible de récupérer la météo.");
+                    } finally {
+                      setMeteoLoading(false);
+                    }
+
+                    // (Optionnel) définir le point de départ
+                    // setStartPin(coord);
                   }}
                 >
                   {s.label}
@@ -216,12 +250,56 @@ const Home: React.FC = () => {
         />
       </div>
 
-      {/* Sheet vierge */}
+      {/* Sheet avec récap météo */}
       <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
         <SheetContent side="left" className="w-[380px] sm:w-[420px]">
           <SheetHeader>
-            <SheetTitle>{query}</SheetTitle>
+            <SheetTitle>{query || "Météo"}</SheetTitle>
           </SheetHeader>
+              
+          <div className="mt-4 space-y-3">
+            {meteoLoading && (
+              <div className="text-sm text-muted-foreground">Chargement de la météo…</div>
+            )}
+
+            {meteoError && (
+              <div className="text-sm text-red-600">{meteoError}</div>
+            )}
+
+            {!meteoLoading && !meteoError && meteo && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-2xl border p-3 shadow-sm">
+                  <div className="text-xs text-muted-foreground">Température</div>
+                  <div className="text-xl font-semibold">
+                    {meteo.temperature ?? "-"}
+                    {meteo.temperature_unit ? ` ${meteo.temperature_unit}` : " °C"}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border p-3 shadow-sm">
+                  <div className="text-xs text-muted-foreground">Humidité</div>
+                  <div className="text-xl font-semibold">
+                    {meteo.humidity ?? "-"}
+                    {meteo.humidity_unit ? ` ${meteo.humidity_unit}` : " %"}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border p-3 shadow-sm">
+                  <div className="text-xs text-muted-foreground">Vent</div>
+                  <div className="text-xl font-semibold">
+                    {meteo.windSpeed ?? "-"}
+                    {meteo.windSpeed_unit ? ` ${meteo.windSpeed_unit}` : " km/h"}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {!meteoLoading && !meteoError && !meteo && (
+              <div className="text-sm text-muted-foreground">
+                Sélectionne une localisation pour afficher la météo.
+              </div>
+            )}
+          </div>
         </SheetContent>
       </Sheet>
     </div>
