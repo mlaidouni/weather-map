@@ -22,6 +22,8 @@ public class LocationController {
 		this.restTemplate = restTemplate;
 	}
 
+	// FIXME: déplacer la logique de toSuggestion ici
+
 	@GetMapping("/search")
 	public Map<String, Object> getLocationSuggestion(
 			@RequestParam(required = true, defaultValue = "") String query) {

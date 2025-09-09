@@ -3,10 +3,9 @@ import { fetchLocationSuggestions } from "../api/location";
 
 export type Suggestion = { label: string; coordinates: [number, number] };
 
+// FIXME: déplacer toSuggestion dans LocationController
 function toSuggestion(f: any): Suggestion | null {
-  const label =
-    f?.label ??
-    null;
+  const label = f?.label ?? null;
 
   let coords: [number, number] | null = null;
 
