@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { fetchLocationSuggestions } from "../api/location";
-
-export type Suggestion = { label: string; coordinates: [number, number] };
+import { Suggestion } from "@/types/suggestion";
 
 // FIXME: déplacer toSuggestion dans LocationController
 function toSuggestion(f: any): Suggestion | null {

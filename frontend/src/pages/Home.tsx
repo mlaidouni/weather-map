@@ -1,4 +1,4 @@
-import React, { use, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import MapCard from "../components/card/MapCard";
 import L, { LatLngExpression } from "leaflet";
 import {
@@ -38,38 +38,7 @@ import {
 } from "@/components/ui/sheet";
 import { fetchMeteoFromLocation } from "@/api/weather";
 import { fetchRoutingWeatherAware } from "@/api/routing";
-
-/// ---- Types ----
-// Types pour une localisation
-export type LocationData = {
-	name?: string | null;
-	// Si l'object n'est pas null, alors ces deux champs sont définis
-	latitude: number;
-	longitude: number;
-	meteo?: MeteoData;
-};
-
-// Types pour la météo
-type MeteoData = {
-	latitude?: number;
-	longitude?: number;
-	temperature?: number;
-	temperature_unit?: string;
-	apparent_temperature?: number;
-	apparent_temperature_unit?: string;
-	humidity?: number;
-	humidity_unit?: string;
-	windSpeed?: number;
-	windSpeed_unit?: string;
-	rain?: number;
-	rain_unit?: string;
-	precipitation?: number;
-	precipitation_unit?: string;
-	cloudCover?: number;
-	cloudCover_unit?: string;
-	visibility?: number;
-	visibility_unit?: string;
-};
+import { LocationData } from "@/types/locationData";
 
 const Home: React.FC = () => {
 	/// ---- États ----
@@ -120,6 +89,7 @@ const Home: React.FC = () => {
 		setRouteError(null);
 	};
 
+	// Appel au backend pour calculer l'itinéraire
 	const fetchRoute = async () => {
 		if (!startLocation || !endLocation) return;
 
@@ -228,7 +198,7 @@ const Home: React.FC = () => {
 		else clearPoints();
 	};
 
-	// Appel au backend pour calculer l'itinéraire quand les deux pins sont définis
+	// Calcule l'itinéraire quand les deux pins sont définis
 	useEffect(() => {
 		if (startLocation && endLocation) fetchRoute();
 	}, [startLocation, endLocation]); // FIXME Déclencher uniquement si les coords changent ?
