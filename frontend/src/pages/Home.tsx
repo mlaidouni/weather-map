@@ -28,6 +28,7 @@ import { useLocationSuggestions } from "../hooks/useLocationSuggestions";
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
@@ -275,20 +276,63 @@ const Home: React.FC = () => {
       {/* Sheet avec récap météo */}
       <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
         <SheetContent side="left" className="w-[380px] sm:w-[420px]">
+          {/* Header : Informations générales */}
           <SheetHeader>
             <SheetTitle>{query || "Météo"}</SheetTitle>
+            <SheetDescription>
+              {/* Coordonnées */}
+              {meteo && meteo.latitude && meteo.longitude && (
+                <div className="text-sm text-muted-foreground">
+                  Coordonnées: {meteo.latitude.toFixed(4)},{" "}
+                  {meteo.longitude.toFixed(4)}
+                </div>
+              )}
+            </SheetDescription>
           </SheetHeader>
 
           <div className="mt-4 space-y-3">
+            {/* Chargement */}
             {meteoLoading && (
               <div className="text-sm text-muted-foreground">
                 Chargement de la météo…
               </div>
             )}
 
+            {/* Cas d'erreur */}
             {meteoError && (
               <div className="text-sm text-red-600">{meteoError}</div>
             )}
+
+            {/* TODO: ÇA POURRAIT NOUS SERVIR */}
+            {/* <Tabs defaultValue="Météo Actuelle">
+              <TabsList>
+                <TabsTrigger value="Météo Actuelle">Météo Actuelle</TabsTrigger>
+                <TabsTrigger value="Prévisions">Prévisions</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="Météo Actuelle">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Météo Actuelle</CardTitle>
+                    <CardDescription>
+                      Météo actuelle (décalage possible de 15 minutes)
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="grid gap-6"></CardContent>
+                </Card>
+              </TabsContent>
+              <TabsContent value="Prévisions">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Prévisions</CardTitle>
+                    <CardDescription>
+                      Prévisions prochaines heures
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="grid gap-6"></CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs> */}
 
             {/* Affichage des données météo */}
             {!meteoLoading && !meteoError && meteo && (
