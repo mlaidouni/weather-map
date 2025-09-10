@@ -39,6 +39,8 @@ import { LocationData } from "@/types/locationData";
 import { Suggestion } from "@/types/suggestion";
 import { Area } from "@/types/area";
 import { RouteData } from "@/types/routes";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 
 const Home: React.FC = () => {
 	/// ---- États ----
@@ -50,6 +52,7 @@ const Home: React.FC = () => {
 	const [isRainMapSelected, setIsRainMapSelected] = useState(0);
 	const [isCloudMapSelected, setIsCloudMapSelected] = useState(0);
 	const [isWindMapSelected, setIsWindMapSelected] = useState(0);
+	const [routeFilteredByRain, setRouteFilteredByRain] = useState(false);
 
 	// Recherche et Search bar
 	const [isRouteSearchBarOpen, setIsRouteSearchBarOpen] = useState(false);
@@ -372,6 +375,18 @@ const Home: React.FC = () => {
 								<CommandEmpty>Aucun résultat.</CommandEmpty>
 							</CommandList>)}
 					</Command>)}
+
+				{isRouteSearchBarOpen && (<div className="flex items-center gap-2 p-2">
+					<Checkbox
+						disabled={!startLocation || !endLocation}
+						onCheckedChange={(checked) => {
+							setRouteFilteredByRain(!checked);
+							// TODO: Rafraîchir l'itinéraire avec le filtre
+						}}
+					/>
+					<Label>Éviter la pluie</Label>
+				</div>)}
+
 			</div>
 
 			{/* Filtres */}
