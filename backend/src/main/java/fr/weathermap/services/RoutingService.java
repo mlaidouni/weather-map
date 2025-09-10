@@ -1,115 +1,208 @@
 package fr.weathermap.services;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
-
-import io.github.cdimascio.dotenv.Dotenv;
 
 import java.util.*;
 
 @Service
 public class RoutingService {
 
-    private final Dotenv dotenv = Dotenv.load();
-    private final String routeAPIKey = dotenv.get("OPEN_ROUTE_SERVICE_API_KEY");
-    
+    @Autowired
+    private AvoidZoneService avoidZoneService;
+
+    private final String valhallaAPI = "http://37.187.49.205:8002/route";
+
+    /**
+     * Calculate a simple route between two points.
+     * Returns only the decoded list of coordinates (lat, lon).
+     */
+    public List<List<Double>> calculateSimpleRoute(
+            double startLat, double startLng,
+            double endLat, double endLng
+    ) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("locations", Arrays.asList(
+                Map.of("lat", startLat, "lon", startLng),
+                Map.of("lat", endLat, "lon", endLng)
+        ));
+        requestBody.put("costing", "auto");
+
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+
+        RestTemplate restTemplate = new RestTemplate();
+        Map<String, Object> apiResponse;
+        try {
+            apiResponse = restTemplate.postForObject(valhallaAPI, entity, Map.class);
+        } catch (Exception e) {
+            System.err.println("Routing request failed: " + e.getMessage());
+            return Collections.emptyList();
+        }
+
+        if (apiResponse == null) {
+            return Collections.emptyList();
+        }
+
+        Map<String, Object> trip = (Map<String, Object>) apiResponse.get("trip");
+        if (trip == null) {
+            return Collections.emptyList();
+        }
+
+        List<Map<String, Object>> legs = (List<Map<String, Object>>) trip.get("legs");
+        if (legs == null || legs.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<List<Double>> allCoordinates = new ArrayList<>();
+
+        try {
+            for (Map<String, Object> leg : legs) {
+                String shape = (String) leg.get("shape");
+                if (shape != null) {
+                    List<List<Double>> coords = decodePolyline(shape, 6);
+                    if (!coords.isEmpty()) {
+                        if (!allCoordinates.isEmpty()) {
+                            List<Double> last = allCoordinates.get(allCoordinates.size() - 1);
+                            List<Double> first = coords.get(0);
+                            if (last.get(0).equals(first.get(0)) && last.get(1).equals(first.get(1))) {
+                                coords.remove(0);
+                            }
+                        }
+                        allCoordinates.addAll(coords);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Failed to parse routing data: " + e.getMessage());
+            return Collections.emptyList();
+        }
+
+        return allCoordinates;
+    }
+
     /**
      * Calculate a route between two points avoiding areas with specified weather conditions
      * Returns simplified route data with only distance, duration and coordinates
      */
-    @SuppressWarnings("unchecked")
     public Map<String, Object> calculateWeatherAwareRoute(
-            double startLat, double startLng, 
-            double endLat, double endLng, 
-            List<String> avoidWeatherConditions) {
+            double startLat, double startLng,
+            double endLat, double endLng,
+            List<String> avoidWeatherConditions
+    ) {
+        Map<String, Object> response = new HashMap<>();
 
-        // Build the request URL and headers
-        String url = "https://api.openrouteservice.org/v2/directions/driving-car/json";
-        
+        System.out.println("Calculating weather-aware route from (" + startLat + ", " + startLng + ") to (" + endLat + ", " + endLng + ") avoiding: " + avoidWeatherConditions);
+
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.set("Authorization", routeAPIKey);
-        
-        // Build the request body
+
         Map<String, Object> requestBody = new HashMap<>();
-        // Coordinates are provided in [longitude, latitude] format
-        List<List<Double>> coordinates = new ArrayList<>();
-        coordinates.add(Arrays.asList(startLng, startLat));
-        coordinates.add(Arrays.asList(endLng, endLat));
-        requestBody.put("coordinates", coordinates);
-        
-        // Add alternative routes configuration
-        Map<String, Object> alternativeRoutes = new HashMap<>();
-        alternativeRoutes.put("target_count", 3);  // Request 3 alternative routes
-        alternativeRoutes.put("weight_factor", 2.4);
-        requestBody.put("alternative_routes", alternativeRoutes);
-        
-        // Make POST request
-        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
-        RestTemplate restTemplate = new RestTemplate();
-        Map<String, Object> apiResponse;
+        requestBody.put("locations", Arrays.asList(
+                Map.of("lat", startLat, "lon", startLng),
+                Map.of("lat", endLat, "lon", endLng)
+        ));
 
-        try {
-            // First try with alternative routes
-            apiResponse = restTemplate.postForObject(url, entity, Map.class);
-        } catch (org.springframework.web.client.HttpClientErrorException.BadRequest e) {
-            // If we get a 400 error (likely due to distance limit), retry without alternative routes
-            if (e.getMessage().contains("exceed the server configuration limits")) {
-                System.out.println("Route distance exceeds limit for alternative routes. Retrying with standard route...");
-                // Remove the alternative_routes parameter and retry
-                requestBody.remove("alternative_routes");
-                entity = new HttpEntity<>(requestBody, headers);
-                apiResponse = restTemplate.postForObject(url, entity, Map.class);
-            } else {
-                // If it's another type of BadRequest error, rethrow
-                throw e;
-            }
+        requestBody.put("costing", "auto");
+
+        // Add avoid polygons if "rain" is in avoidWeatherConditions
+        if(avoidWeatherConditions != null && avoidWeatherConditions.contains("rain")) {
+            List<List<Double>> routeCoords = calculateSimpleRoute(startLat, startLng, endLat, endLng);
+            List<List<List<Double>>> polygonsLonLat = avoidZoneService.rainingPolygonsLonLat(routeCoords);
+            requestBody.put("exclude_polygons", polygonsLonLat);
+            response.put("raining_zones", avoidZoneService.reverseLonLat(polygonsLonLat));
         }
-        
-        // Create our simplified response with only essential route data
-        Map<String, Object> response = new HashMap<>();
+
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+
+        System.out.println("Requesting route from own API with body: " + requestBody);
+
+        RestTemplate restTemplate = new RestTemplate();
+        Map<String, Object> apiResponse = restTemplate.postForObject(valhallaAPI, entity, Map.class);
+
         List<Map<String, Object>> simplifiedRoutes = new ArrayList<>();
-        
+
         try {
-            // Extract all routes from the response
-            List<Map<String, Object>> routes = (List<Map<String, Object>>) apiResponse.get("routes");
-            
-            if (routes != null && !routes.isEmpty()) {
-                for (Map<String, Object> route : routes) {
-                    Map<String, Object> simplifiedRoute = new HashMap<>();
-                    
-                    // Extract summary data - just distance and duration
-                    Map<String, Object> summary = (Map<String, Object>) route.get("summary");
-                    simplifiedRoute.put("distance", summary.get("distance"));
-                    simplifiedRoute.put("duration", summary.get("duration"));
-                    
-                    // Extract route geometry (coordinates)
-                    // simplifiedRoute.put("geometry", route.get("geometry"));
+            if (apiResponse == null) {
+                response.put("routes", simplifiedRoutes);
+                response.put("error", "Empty response from routing API");
+                return response;
+            }
 
-                    String encodedGeometry = route.get("geometry").toString();
-                    List<List<Double>> coordinates_list = decodePolylineToLatLngList(encodedGeometry);
-                    simplifiedRoute.put("coordinates", coordinates_list);
+            Map<String, Object> trip = (Map<String, Object>) apiResponse.get("trip");
+            if (trip == null) {
+                response.put("routes", simplifiedRoutes);
+                response.put("error", "Missing trip object in response");
+                return response;
+            }
 
-                    simplifiedRoutes.add(simplifiedRoute);
+            List<Map<String, Object>> legs = (List<Map<String, Object>>) trip.get("legs");
+            if (legs == null || legs.isEmpty()) {
+                response.put("routes", simplifiedRoutes);
+                response.put("error", "No legs in trip");
+                return response;
+            }
+
+            double totalDistanceMeters = 0.0;
+            double totalDurationSeconds = 0.0;
+            List<List<Double>> allCoordinates = new ArrayList<>();
+
+            for (Map<String, Object> leg : legs) {
+                Map<String, Object> legSummary = (Map<String, Object>) leg.get("summary");
+                if (legSummary != null) {
+                    // length is in kilometers in sample; convert to meters
+                    Object lengthObj = legSummary.get("length");
+                    if (lengthObj instanceof Number) {
+                        totalDistanceMeters += ((Number) lengthObj).doubleValue() * 1000.0;
+                    }
+                    Object timeObj = legSummary.get("time");
+                    if (timeObj instanceof Number) {
+                        totalDurationSeconds += ((Number) timeObj).doubleValue();
+                    }
+                }
+
+                String shape = (String) leg.get("shape");
+                if (shape != null) {
+                    List<List<Double>> coords = decodePolyline(shape, 6);
+                    if (!coords.isEmpty()) {
+                        if (!allCoordinates.isEmpty()) {
+                            List<Double> last = allCoordinates.get(allCoordinates.size() - 1);
+                            List<Double> first = coords.get(0);
+                            if (last.get(0).equals(first.get(0)) && last.get(1).equals(first.get(1))) {
+                                coords.remove(0);
+                            }
+                        }
+                        allCoordinates.addAll(coords);
+                    }
                 }
             }
-            
+
+            Map<String, Object> simplifiedRoute = new HashMap<>();
+            simplifiedRoute.put("distance", totalDistanceMeters);
+            simplifiedRoute.put("duration", totalDurationSeconds);
+            simplifiedRoute.put("coordinates", allCoordinates);
+
+            simplifiedRoutes.add(simplifiedRoute);
+
             response.put("routes", simplifiedRoutes);
-            
+
         } catch (Exception e) {
-            System.err.println("Error parsing API response: " + e.getMessage());
-            e.printStackTrace();
-            response.put("error", "Failed to parse routing data: " + e.getMessage());
+            response.put("routes", simplifiedRoutes);
+            response.put("error", "Failed to parse own API routing data: " + e.getMessage());
         }
 
         return response;
     }
 
-    private List<List<Double>> decodePolylineToLatLngList(String encoded) {
+    private List<List<Double>> decodePolyline(String encoded, int precision) {
         List<List<Double>> latLngList = new ArrayList<>();
         int index = 0, len = encoded.length();
-        int lat = 0, lng = 0;
+        long lat = 0, lng = 0;
+        int factor = (int) Math.pow(10, precision);
 
         while (index < len) {
             int b, shift = 0, result = 0;
@@ -118,7 +211,7 @@ public class RoutingService {
                 result |= (b & 0x1f) << shift;
                 shift += 5;
             } while (b >= 0x20);
-            int dlat = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+            long dlat = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
             lat += dlat;
 
             shift = 0;
@@ -128,24 +221,22 @@ public class RoutingService {
                 result |= (b & 0x1f) << shift;
                 shift += 5;
             } while (b >= 0x20);
-            int dlng = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+            long dlng = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
             lng += dlng;
 
-            List<Double> latLng = new ArrayList<>();
-            latLng.add(lat / 1e5);
-            latLng.add(lng / 1e5);
-            latLngList.add(latLng);
+            List<Double> pair = new ArrayList<>(2);
+            pair.add(lat / (double) factor);
+            pair.add(lng / (double) factor);
+            latLngList.add(pair);
         }
-
         return latLngList;
     }
 
     public static void main(String[] args) {
         RoutingService service = new RoutingService();
         Map<String, Object> route = service.calculateWeatherAwareRoute(
-                48.8566, 2.3522,  // Paris
-                48.77602916990935, 2.463881751424904, // Créteil
-                Arrays.asList("rain", "snow"));
+            48.8566, 2.3522, 48.77602916990935, 2.463881751424904, null);
+
         System.out.println(route);
     }
 }

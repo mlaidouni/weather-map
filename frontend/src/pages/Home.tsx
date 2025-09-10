@@ -15,6 +15,7 @@ import MapFilterCard from "@/components/card/MapFilterCard";
 import { useLocationSuggestions } from "../hooks/useLocationSuggestions";
 import { Marker } from "react-leaflet";
 import { RouteData } from "@/types/routes";
+import { Area } from "@/types/area";
 
 const markerIcon = L.icon({
   iconUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png",
@@ -53,15 +54,7 @@ const Home: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [smallZones, setSmallZones] = useState<Array<{
-    latMin: number;
-    latMax: number;
-    lonMin: number;
-    lonMax: number;
-    centerLat?: number;
-    centerLon?: number;
-    isRaining?: boolean;
-  }>>([]);
+  const [areas, setAreas] = useState<Area[]>([]);
 
   const handleMapClick = (e: any) => {
     const { lat, lng } = e.latlng;
@@ -83,7 +76,7 @@ const Home: React.FC = () => {
   const clearPoints = () => {
     setRoutes([]);
     setError(null);
-    setSmallZones([]);
+    setAreas([]);
 
     setStartPin(null);
     setEndPin(null);
@@ -107,37 +100,8 @@ const Home: React.FC = () => {
       const startLatLng = L.latLng(startPin);
       const endLatLng = L.latLng(endPin);
 
-      // Mise en place de la zone
-      const urlzone = `/api/routing/test-zone?startLat=${startLatLng.lat}&startLng=${startLatLng.lng}&endLat=${endLatLng.lat}&endLng=${endLatLng.lng}`;
-      const responsezone = await fetch(urlzone);
-      
-      if (!responsezone.ok) {
-        console.error("Erreur lors de la récupération de la zone:", responsezone.status);
-      } else {
-        const datazone = await responsezone.json();
-        
-        // Stockage de la boundingBox globale dans l'état
-        if (datazone && datazone.boundingBox) {
-          
-          // Conversion de la boundingBox en coordonnées pour affichage sur la carte
-          const boxCoordinates: LatLngExpression[] = [
-            [datazone.boundingBox.latMin, datazone.boundingBox.lonMin],
-            [datazone.boundingBox.latMin, datazone.boundingBox.lonMax],
-            [datazone.boundingBox.latMax, datazone.boundingBox.lonMax],
-            [datazone.boundingBox.latMax, datazone.boundingBox.lonMin],
-            [datazone.boundingBox.latMin, datazone.boundingBox.lonMin], // Fermer le polygone
-          ];
-          
-        }
-        
-        // Stockage des petites zones avec informations météo
-        if (datazone && datazone.zones && Array.isArray(datazone.zones)) {
-          setSmallZones(datazone.zones);
-        }
-      } 
-
       // Construction de l'URL avec les paramètres
-      const url = `/api/routing/weather-aware?startLat=${startLatLng.lat}&startLng=${startLatLng.lng}&endLat=${endLatLng.lat}&endLng=${endLatLng.lng}`;
+      const url = `/api/routing/weather-aware?startLat=${startLatLng.lat}&startLng=${startLatLng.lng}&endLat=${endLatLng.lat}&endLng=${endLatLng.lng}&avoidConditions=rain`;
       const response = await fetch(url);
 
       if (!response.ok) {
@@ -146,6 +110,43 @@ const Home: React.FC = () => {
 
       const data = await response.json();
       const apiRoutes = data.routes;
+      const rainingZones = data.raining_zones;
+
+      // raining_zones is ALWAYS: [ [ [lat,lng], [lat,lng], ... ],  ... ]
+      if (Array.isArray(rainingZones)) {
+        const polygons: Area[] = rainingZones
+          .map((poly: any) => {
+            if (!Array.isArray(poly)) return null;
+
+            const coords = poly
+              .map((pt: any) => {
+                if (Array.isArray(pt) && pt.length >= 2) {
+                  const lat = Number(pt[0]);
+                  const lng = Number(pt[1]);
+                  if (!isNaN(lat) && !isNaN(lng)) return [lat, lng] as LatLngExpression;
+                }
+                return null;
+              })
+              .filter(Boolean) as LatLngExpression[];
+
+            if (!coords.length) return null;
+
+            // Optionally close polygon if not closed
+            const first = coords[0];
+            const last = coords[coords.length - 1];
+            if (first[0] !== last[0] || first[1] !== last[1]) {
+              coords.push(first);
+            }
+
+            return {
+              coordinates: coords,
+              isRaining: true
+            } as Area;
+          })
+          .filter(Boolean) as Area[];
+
+        setAreas(polygons);
+      }
 
       if (!apiRoutes || apiRoutes.length === 0) {
         setError("Aucun itinéraire trouvé");
@@ -276,7 +277,7 @@ const Home: React.FC = () => {
           showTempLayer={!!tempselected}
           showRainLayer={!!rainselected}
           routes={routes}
-          smallZones={smallZones}
+          areas={areas}
           startPin={startPin}
           endPin={endPin}
           onMapClick={handleMapClick}

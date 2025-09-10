@@ -14,33 +14,15 @@ public class AvoidZoneService {
     double SEUIL_RAIN = 0.0; // mm/h
     private int ROWS = 15;
     private int COLS = 15;
-
-    @Autowired
-    private RoutingService routingService;
     
     @Autowired
     private WeatherService weatherService;
 
     private double MARGE = 30.0; // marge en km
 
-    @SuppressWarnings("unchecked")
     public Map<String, Object> zone_total(
-        double startLat, double startLng, 
-        double endLat, double endLng
+        List<List<Double>> coordinates
     ){
-
-        Map<String, Object> routeResponse = routingService.calculateWeatherAwareRoute(
-            startLat, startLng, endLat, endLng, new ArrayList<>()
-        );
-
-        List<Map<String, Object>> routes = (List<Map<String, Object>>) routeResponse.get("routes");
-        if (routes == null || routes.isEmpty()) {
-            throw new RuntimeException("No route returned by the API");
-        }
-
-        //On récupère la liste des coordonnées de la première route (tu peux adapter pour plusieurs routes)
-        List<List<Double>> coordinates = (List<List<Double>>) routes.get(0).get("coordinates");
-
         // On initialise latMin/max et lonMin/max avec le premier point
         double latMin = coordinates.get(0).get(0);
         double latMax = coordinates.get(0).get(0);
@@ -87,11 +69,11 @@ public class AvoidZoneService {
 
     @SuppressWarnings("unchecked")
     // Nouvelle fonction pour découper en petites zones
-    public Map<String, Object> smallZones(double startLat, double startLng, double endLat, double endLng) {
+    public Map<String, Object> smallZones(List<List<Double>> coordinates) {
 
         // On récupère la bounding box totale
-        Map<String, Object> totalBox = zone_total(startLat, startLng, endLat, endLng);
-        
+        Map<String, Object> totalBox = zone_total(coordinates);
+
         Map<String, Double> box = (Map<String, Double>) totalBox.get("boundingBox");
 
         double latMin = box.get("latMin");
@@ -129,10 +111,10 @@ public class AvoidZoneService {
     }
 
     @SuppressWarnings("unchecked")
-    public Map<String, Object> smallZonesWithRain(double startLat, double startLng, double endLat, double endLng) {
+    public Map<String, Object> smallZonesWithRain(List<List<Double>> coordinates) {
 
         // Récupère toutes les petites zones
-        Map<String, Object> smallZonesMap = smallZones(startLat, startLng, endLat, endLng);
+        Map<String, Object> smallZonesMap = smallZones(coordinates);
 
         Map<String, Double> boundingBox = (Map<String, Double>) smallZonesMap.get("boundingBox");
         List<Map<String, Double>> zones = (List<Map<String, Double>>) smallZonesMap.get("zones");
@@ -208,9 +190,9 @@ public class AvoidZoneService {
     }
 
     @SuppressWarnings("unchecked")
-    public List<List<List<Double>>> rainingPolygons(double startLat, double startLng, double endLat, double endLng) {
+    public List<List<List<Double>>> rainingPolygonsLonLat(List<List<Double>> coordinates) {
         // Récupérer toutes les petites zones avec pluie
-        Map<String, Object> zonesMap = smallZonesWithRain(startLat, startLng, endLat, endLng);
+        Map<String, Object> zonesMap = smallZonesWithRain(coordinates);
         List<Map<String, Object>> zones = (List<Map<String, Object>>) zonesMap.get("zones");
 
         // Filtrer uniquement celles où il pleut
@@ -267,5 +249,17 @@ public class AvoidZoneService {
         }
 
         return polygons;
+    }
+
+    public List<List<List<Double>>> reverseLonLat(List<List<List<Double>>> polygons) {
+        List<List<List<Double>>> reversed = new ArrayList<>();
+        for (List<List<Double>> polygon : polygons) {
+            List<List<Double>> revPoly = new ArrayList<>();
+            for (List<Double> point : polygon) {
+                revPoly.add(List.of(point.get(1), point.get(0))); // Inverse lat/lon
+            }
+            reversed.add(revPoly);
+        }
+        return reversed;
     }
 }
