@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import MapFilterCard from "@/components/card/MapFilterCard";
-import { useLocationSuggestions } from "../hooks/useLocationSuggestions";
+import { Suggestion, useLocationSuggestions } from "../hooks/useLocationSuggestions";
 import {
   Sheet,
   SheetContent,
@@ -117,6 +117,26 @@ const Home: React.FC = () => {
     setRouteError(null);
   };
 
+	const onSelectSuggestion = async (s: Suggestion) => {
+		// Ferme les suggestions
+		setIsSearchBarOpen(false);
+		setQuery(s.label);
+		setStartLocation({
+			name: s.label,
+			latitude: s.coordinates[0],
+			longitude: s.coordinates[1],
+		});
+
+		setCenter(s.coordinates as LatLngExpression);
+		setZoom(13);
+
+		// Ouvre la sheet et prépare affichage
+		setIsSheetOpen(true);
+		setMeteo(null);
+		setMeteoError(null);
+		setMeteoLoading(true);
+	};
+
   /// ---- Effets ----
   const handleMapClick = (e: any) => {
     const { lat, lng } = e.latlng;
@@ -175,6 +195,33 @@ const Home: React.FC = () => {
     }
   };
 
+  // Mis à jour de la météo quand la localisation de départ change
+  const fetchMeteo = async (loc: LocationData) => {
+    try {
+      setMeteo(null);
+      setMeteoError(null);
+      setMeteoLoading(true);
+      const data: MeteoData = await fetchMeteoFromLocation(
+        loc.latitude,
+        loc.longitude
+      );
+      setMeteo(data);
+    } catch (e) {
+      console.error(e);
+      setMeteoError("Impossible de récupérer la météo.");
+    } finally {
+      setMeteoLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (startLocation) fetchMeteo(startLocation);
+  }, [startLocation]);
+
+  useEffect(() => {
+    if (endLocation) fetchMeteo(endLocation);
+  }, [endLocation]);
+
   // ---------- RENDER ----------
   return (
     <div className="relative w-full h-full">
@@ -210,39 +257,9 @@ const Home: React.FC = () => {
                 <CommandItem
                   key={idx}
                   value={s.label}
-                  onSelect={async () => {
-                    // Ferme les suggestions
-                    setIsSearchBarOpen(false);
-
-                    // Centre la carte
-                    const coord = s.coordinates as LatLngExpression; // [lat, lon]
-                    setCenter(coord);
-                    setZoom(13);
-                    setQuery(s.label);
-
-                    // Ouvre la sheet et prépare affichage
-                    setIsSheetOpen(true);
-                    setMeteo(null);
-                    setMeteoError(null);
-                    setMeteoLoading(true);
-
-                    try {
-                      const [lat, lon] = s.coordinates as [number, number];
-                      const data: MeteoData = await fetchMeteoFromLocation(
-                        lat,
-                        lon
-                      );
-                      setMeteo(data);
-                    } catch (e) {
-                      console.error(e);
-                      setMeteoError("Impossible de récupérer la météo.");
-                    } finally {
-                      setMeteoLoading(false);
-                    }
-
-                    // (Optionnel) définir le point de départ
-                    // setStartPin(coord);
-                  }}
+                  onSelect={
+                    () => onSelectSuggestion(s)
+                  }
                 >
                   {s.label}
                 </CommandItem>
@@ -294,13 +311,19 @@ const Home: React.FC = () => {
         <SheetContent side="left" className="w-[380px] sm:w-[420px]">
           {/* Header : Informations générales */}
           <SheetHeader>
-            <SheetTitle>{query || "Informations"}</SheetTitle>
+            <SheetTitle>
+              {startLocation?.name ||
+                (startLocation?.latitude
+                  ? `${startLocation.latitude.toFixed(10)}, 
+				  ${startLocation.longitude.toFixed(10)}`
+                  : "Informations")}
+            </SheetTitle>
             <SheetDescription>
               {/* Coordonnées */}
-              {meteo && meteo.latitude && meteo.longitude && (
+              {startLocation && (
                 <div className="text-sm text-muted-foreground">
-                  Coordonnées: {meteo.latitude.toFixed(4)},{" "}
-                  {meteo.longitude.toFixed(4)}
+                  Coordonnées: {startLocation.latitude.toFixed(4)},{" "}
+                  {startLocation.longitude.toFixed(4)}
                 </div>
               )}
             </SheetDescription>
@@ -311,6 +334,7 @@ const Home: React.FC = () => {
               disabled={!meteoLoading && !meteoError && !meteo}
               onClick={() => {
                 // TODO Gérer le clic sur le bouton "Itinéraire"
+                console.log("3- StartLocation:", startLocation);
               }}
             >
               Itinéraire
@@ -318,6 +342,15 @@ const Home: React.FC = () => {
           </SheetHeader>
 
           <div className="mt-4 space-y-3">
+            {/* Cas d'erreur */}
+            {meteoError && (
+              <div className="text-sm text-red-600 p-2">
+                <CircleX className="inline-block mr-1 mb-1 text-red-500" />
+                {meteoError ||
+                  "Erreur lors de la récupération des données météo."}
+              </div>
+            )}
+
             {/* Chargement */}
             {meteoLoading && (
               <div className="text-sm text-muted-foreground p-2">
@@ -326,11 +359,11 @@ const Home: React.FC = () => {
               </div>
             )}
 
-            {/* Cas d'erreur */}
-            {meteoError && (
-              <div className="text-sm text-red-600 p-2">
-                <CircleX className="inline-block mr-1 mb-1 text-red-500" />
-                {meteoError || "Météo erreur"}
+            {/* Aucune donnée */}
+            {!meteoLoading && !meteoError && !meteo && (
+              <div className="text-sm text-muted-foreground p-2">
+                <TriangleAlert className="inline-block mr-1 mb-1 text-yellow-500" />
+                Sélectionner une localisation pour afficher la météo.
               </div>
             )}
 
@@ -486,19 +519,12 @@ const Home: React.FC = () => {
                 {/* ...infos prévisionnelles à ajouter ici... */}
               </div>
             )}
-
-            {!meteoLoading && !meteoError && !meteo && (
-              <div className="text-sm text-muted-foreground p-2">
-                <TriangleAlert className="inline-block mr-1 mb-1 text-yellow-500" />
-                Sélectionner une localisation pour afficher la météo.
-              </div>
-            )}
           </div>
         </SheetContent>
       </Sheet>
 
       {/* Conditional reopen button */}
-      {!isSheetOpen && query && (
+      {!isSheetOpen && startLocation && (
         <Button
           variant="secondary"
           size="icon"
