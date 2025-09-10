@@ -14,6 +14,8 @@ import { Button } from "@/components/ui/button";
 import MapFilterCard from "@/components/card/MapFilterCard";
 import { useLocationSuggestions } from "../hooks/useLocationSuggestions";
 import { Marker } from "react-leaflet";
+import { RouteData } from "@/types/routes";
+import { Area } from "@/types/area";
 
 const markerIcon = L.icon({
   iconUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png",
@@ -45,26 +47,25 @@ const Home: React.FC = () => {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
 
   const suggestions = useLocationSuggestions(query);
-  const [startCoord, setStartCoord] = useState<LatLngExpression | null>(null);
-  const [endCoord, setEndCoord] = useState<LatLngExpression | null>(null);
-  const [routePath, setRoutePath] = useState<LatLngExpression[]>([]);
-  const [routeInfo, setRouteInfo] = useState<{
-    distance?: number;
-    duration?: number;
-  }>({});
+  const [startPin, setStartPin] = useState<LatLngExpression | null>(null);
+  const [endPin, setEndPin] = useState<LatLngExpression | null>(null);
+
+  const [routes, setRoutes] = useState<RouteData[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [areas, setAreas] = useState<Area[]>([]);
 
   const handleMapClick = (e: any) => {
     const { lat, lng } = e.latlng;
 
     // Si le point de départ n'est pas défini, on le définit
-    if (!startCoord) {
-      setStartCoord([lat, lng]);
+    if (!startPin) {
+      setStartPin([lat, lng]);
     }
     // Sinon, si le point d'arrivée n'est pas défini, on le définit
-    else if (!endCoord) {
-      setEndCoord([lat, lng]);
+    else if (!endPin) {
+      setEndPin([lat, lng]);
     }
     // Si les deux sont définis, on réinitialise le point de départ et on efface le point d'arrivée
     else {
@@ -73,34 +74,80 @@ const Home: React.FC = () => {
   };
 
   const clearPoints = () => {
-    setStartCoord(null);
-    setEndCoord(null);
-    setRoutePath([]);
-    setRouteInfo({});
+    setRoutes([]);
     setError(null);
+    setAreas([]);
+
+    setStartPin(null);
+    setEndPin(null);
   };
 
   // Appel au backend pour calculer l'itinéraire quand les deux pins sont définis
   useEffect(() => {
-    if (startCoord && endCoord) {
+    if (startPin && endPin) {
       fetchRoute();
     }
-  }, [startCoord, endCoord]);
+  }, [startPin, endPin]);
 
   const fetchRoute = async () => {
-    if (!startCoord || !endCoord) return;
+    if (!startPin || !endPin) return;
 
     setLoading(true);
     setError(null);
 
     try {
+
       // Conversion des pins en coordonnées lat/lng pour l'API
-      const startLatLng = L.latLng(startCoord);
-      const endLatLng = L.latLng(endCoord);
+      const startLatLng = L.latLng(startPin);
+      const endLatLng = L.latLng(endPin);
+      const urlRainZones = `/api/weather/rain/zone?startLat=${startLatLng.lat}&startLng=${startLatLng.lng}&endLat=${endLatLng.lat}&endLng=${endLatLng.lng}`;
+      const responseRainZones = await fetch(urlRainZones);
 
+      if (!responseRainZones.ok) {
+        throw new Error(`Erreur API: ${responseRainZones.status}`);
+      }
+
+      const rainingZonesMap = await responseRainZones.json();
+      const rainingZones = rainingZonesMap.polygons;
+
+      // raining_zones is ALWAYS: [ [ [lat,lng], [lat,lng], ... ],  ... ]
+      if (Array.isArray(rainingZones)) {
+        const polygons: Area[] = rainingZones
+          .map((poly: any) => {
+            if (!Array.isArray(poly)) return null;
+
+            const coords = poly
+              .map((pt: any) => {
+                if (Array.isArray(pt) && pt.length >= 2) {
+                  const lat = Number(pt[0]);
+                  const lng = Number(pt[1]);
+                  if (!isNaN(lat) && !isNaN(lng)) return [lat, lng] as LatLngExpression;
+                }
+                return null;
+              })
+              .filter(Boolean) as LatLngExpression[];
+
+            if (!coords.length) return null;
+
+            // Optionally close polygon if not closed
+            const first = coords[0];
+            const last = coords[coords.length - 1];
+            if (first[0] !== last[0] || first[1] !== last[1]) {
+              coords.push(first);
+            }
+
+            return {
+              coordinates: coords,
+              isRaining: true
+            } as Area;
+          })
+          .filter(Boolean) as Area[];
+
+        setAreas(polygons);
+      }
+      
       // Construction de l'URL avec les paramètres
-      const url = `/api/routing/weather-aware?startLat=${startLatLng.lat}&startLng=${startLatLng.lng}&endLat=${endLatLng.lat}&endLng=${endLatLng.lng}`;
-
+      const url = `/api/routing/weather-aware?startLat=${startLatLng.lat}&startLng=${startLatLng.lng}&endLat=${endLatLng.lat}&endLng=${endLatLng.lng}&avoidConditions=rain`;
       const response = await fetch(url);
 
       if (!response.ok) {
@@ -108,32 +155,63 @@ const Home: React.FC = () => {
       }
 
       const data = await response.json();
+      const apiRoutes = data.routes;
+
+      if (!apiRoutes || apiRoutes.length === 0) {
+        setError("Aucun itinéraire trouvé");
+        return;
+      }
 
       // Traitement des données de l'itinéraire
-      if (data.coordinates && Array.isArray(data.coordinates)) {
-        // Conversion des coordonnées au format Leaflet (inversé par rapport à l'API)
-        const path = data.coordinates.map(
-          (coord: number[]) => [coord[1], coord[0]] as LatLngExpression
-        );
-        setRoutePath(path);
+      if (Array.isArray(apiRoutes) && apiRoutes.length > 0) {
+        const processedRoutes: RouteData[] = apiRoutes.map((route, index) => {
+          // Process coordinates
+          const coordinates = route.coordinates
+            .map((coord: number[]) => {
+              const lat = Number(coord[0]);
+              const lng = Number(coord[1]);
 
-        // Extraction des informations sur l'itinéraire
-        setRouteInfo({
-          distance: data.distance
-            ? Math.round((data.distance / 1000) * 10) / 10
-            : undefined, // en km
-          duration: data.duration ? Math.round(data.duration / 60) : undefined, // en minutes
+              if (isNaN(lat) || isNaN(lng)) {
+                console.error("Coordonnée invalide:", coord);
+                return null;
+              }
+              return [lat, lng] as LatLngExpression;
+            })
+            .filter(Boolean);
+
+          // Calculate distance in km (rounded to 1 decimal)
+          const distance = route.distance
+            ? Math.round(route.distance / 1000 * 10) / 10
+            : 0;
+
+          // Calculate duration in minutes
+          const duration = route.duration
+            ? Math.round(route.duration / 60)
+            : 0;
+
+          return {
+            id: `route-${index}`,
+            coordinates,
+            distance,
+            duration
+          };
         });
-      } else {
+
+        setRoutes(processedRoutes);
+      }
+      else {
         setError("Format de données invalide");
       }
-    } catch (err) {
+    }
+    catch (err) {
       console.error("Erreur lors de la récupération de l'itinéraire:", err);
       setError("Impossible de calculer l'itinéraire");
-    } finally {
+    }
+    finally {
       setLoading(false);
     }
   };
+
 
   return (
     <div className="relative w-full h-full">
@@ -145,16 +223,14 @@ const Home: React.FC = () => {
         onClick={() => setOpen((prev) => !prev)}
       >
         <ChevronRightIcon
-          className={`transition-transform duration-300 ${
-            open ? "rotate-90" : ""
-          }`}
+          className={`transition-transform duration-300 ${open ? "rotate-90" : ""
+            }`}
         />
       </Button>
       {/* Barre de recherche en haut à gauche */}
       <div
-        className={`absolute top-4 left-16 z-10 transition-all duration-300 ${
-          open ? "w-64 opacity-100" : "w-0 opacity-0"
-        } overflow-hidden`}
+        className={`absolute top-4 left-16 z-10 transition-all duration-300 ${open ? "w-64 opacity-100" : "w-0 opacity-0"
+          } overflow-hidden`}
       >
         <Command>
           <CommandInput
@@ -209,9 +285,10 @@ const Home: React.FC = () => {
           zoom={zoom}
           showTempLayer={!!tempselected}
           showRainLayer={!!rainselected}
-          listStops={routePath.length > 0 ? routePath : []}
-          startCoord={startCoord}
-          endCoord={endCoord}
+          routes={routes}
+          areas={areas}
+          startPin={startPin}
+          endPin={endPin}
           onMapClick={handleMapClick}
         />
       </div>

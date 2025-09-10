@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState } from 'react';
 import {
   MapContainer,
   TileLayer,
@@ -8,29 +8,35 @@ import {
   ZoomControl,
   Polyline,
   useMapEvents,
-} from "react-leaflet";
-import "leaflet/dist/leaflet.css";
-import { LatLngExpression, Icon } from "leaflet";
-import L from "leaflet";
+  Polygon,
+} from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import { LatLngExpression, Icon } from 'leaflet';
+import L from 'leaflet';
+
+import { RouteData } from "@/types/routes";
+import { Area } from "@/types/area";
 
 const apikey = import.meta.env.VITE_OPEN_WEATHER_API_KEY;
+const DEBUG = import.meta.env.DEBUG === 'true';
+
 
 const startIcon = L.icon({
-  iconUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png",
-  shadowUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png",
+  iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
   iconSize: [25, 41],
   iconAnchor: [12, 41],
   popupAnchor: [1, -34],
-  shadowSize: [41, 41],
+  shadowSize: [41, 41]
 });
 
 const endIcon = L.icon({
-  iconUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png",
-  shadowUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png",
+  iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
   iconSize: [25, 41],
   iconAnchor: [12, 41],
   popupAnchor: [1, -34],
-  shadowSize: [41, 41],
+  shadowSize: [41, 41]
 });
 
 L.Marker.prototype.options.icon = startIcon;
@@ -40,17 +46,17 @@ interface MapProps {
   zoom: number;
   showTempLayer?: boolean;
   showRainLayer?: boolean;
-  listStops?: LatLngExpression[];
-  startCoord?: LatLngExpression | null;
-  endCoord?: LatLngExpression | null;
+  routes: RouteData[];
+  areas?: Area[];
+  startPin?: LatLngExpression | null;
+  endPin?: LatLngExpression | null;
   onMapClick: (e: any) => void;
 }
 
 interface MapSettingsUpdaterProps {
   useOnlineTiles: boolean;
 }
-function RecenterOnPropChange({
-  //Fonction qui permet de recentrer la carte dynamiquement
+function RecenterOnPropChange({ //Fonction qui permet de recentrer la carte dynamiquement 
   center,
   zoom,
 }: {
@@ -109,9 +115,10 @@ const MapCard: React.FC<MapProps> = ({
   zoom,
   showTempLayer = false,
   showRainLayer = false,
-  listStops = [],
-  startCoord = null,
-  endCoord = null,
+  routes = [],
+  areas = [],
+  startPin = null,
+  endPin = null,
   onMapClick,
 }) => {
   return (
@@ -121,7 +128,7 @@ const MapCard: React.FC<MapProps> = ({
         zoom={zoom}
         scrollWheelZoom={true}
         zoomControl={false}
-        style={{ height: "100%", width: "100%" }}
+        style={{ height: '100%', width: '100%' }}
         className="z-0"
       >
         <MapResizeHandler />
@@ -129,13 +136,13 @@ const MapCard: React.FC<MapProps> = ({
         <ZoomControl position="topright" />
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url={"https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"}
+          url={'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'}
         />
         {showTempLayer && (
           <TileLayer
             url={`https://tile.openweathermap.org/map/temp_new/{z}/{x}/{y}.png?appid=${apikey}`}
             attribution="&copy; OpenWeatherMap"
-            opacity={1.0}
+            opacity={0.8}
           />
         )}
         {showRainLayer && (
@@ -146,28 +153,58 @@ const MapCard: React.FC<MapProps> = ({
           />
         )}
 
-        {listStops.length > 0 && <Polyline positions={listStops} color="red" />}
+        {/* Afficher les petites zones */}
+        {areas && areas.length > 0 && areas.map((area, index) => (
+          <Polygon
+            key={index}
+            positions={area.coordinates}
+            pathOptions={{
+              color: area.isRaining ? 'rgba(30, 144, 255, 0.7)' : 'rgba(220, 53, 69, 0.7)',
+              fillColor: area.isRaining ? 'rgba(30, 144, 255, 0.3)' : 'rgba(220, 53, 69, 0.3)',
+              weight: 1,
+              fillOpacity: 0.3,
+              opacity: 0.7
+            }}
+          >
+          </Polygon>
+        ))}
+        {routes && routes.length > 0 && routes.map((route, index) => (
+          <Polyline
+            key={route.id}
+            positions={route.coordinates}
+            pathOptions={{
+              color: ["#3b82f6", "#10b981", "#8b5cf6", "#ef4444", "#f59e0b"][index % 5],
+              // Increase minimum weight for better visibility
+              weight: Math.max(4, 7 - index), // Minimum weight of 4 for all routes
+              // Keep higher opacity for better visibility
+              opacity: Math.max(0.6, 0.9 - (index * 0.1)),
+              // Adjust dash patterns for better visibility
+              dashArray: index === 0 ? undefined :
+                        index === 1 ? "10, 10" :  // Longer dashes
+                        index === 2 ? "5, 5" :    // Medium dashes
+                        "15, 10",                 // Long dash, short gap
+              lineCap: "round",
+              lineJoin: "round"
+            }}
+          />
+        ))}
 
         {/* Afficher le point de départ s'il existe */}
-        {startCoord && (
-          <Marker position={startCoord} icon={startIcon}>
+        {startPin && (
+          <Marker position={startPin} icon={startIcon}>
             <Popup>
-              Point de départ
-              <br />
-              Position: {(startCoord as [number, number])[0].toFixed(5)},{" "}
-              {(startCoord as [number, number])[1].toFixed(5)}
+              Point de départ<br />
+              Position: {(startPin as [number, number])[0].toFixed(5)}, {(startPin as [number, number])[1].toFixed(5)}
             </Popup>
           </Marker>
         )}
 
         {/* Afficher le point d'arrivée s'il existe */}
-        {endCoord && (
-          <Marker position={endCoord} icon={endIcon}>
+        {endPin && (
+          <Marker position={endPin} icon={endIcon}>
             <Popup>
-              Point d'arrivée
-              <br />
-              Position: {(endCoord as [number, number])[0].toFixed(5)},{" "}
-              {(endCoord as [number, number])[1].toFixed(5)}
+              Point d'arrivée<br />
+              Position: {(endPin as [number, number])[0].toFixed(5)}, {(endPin as [number, number])[1].toFixed(5)}
             </Popup>
           </Marker>
         )}
@@ -177,5 +214,6 @@ const MapCard: React.FC<MapProps> = ({
     </div>
   );
 };
+
 
 export default MapCard;
