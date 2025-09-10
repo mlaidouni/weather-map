@@ -45,13 +45,27 @@ public class RoutingService {
         alternativeRoutes.put("weight_factor", 2.4);
         requestBody.put("alternative_routes", alternativeRoutes);
         
-        // TODO: Add avoid_polygons based on weather conditions
-        // This would require a method to convert weather conditions to avoid areas
-        
         // Make POST request
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
         RestTemplate restTemplate = new RestTemplate();
-        Map<String, Object> apiResponse = restTemplate.postForObject(url, entity, Map.class);
+        Map<String, Object> apiResponse;
+
+        try {
+            // First try with alternative routes
+            apiResponse = restTemplate.postForObject(url, entity, Map.class);
+        } catch (org.springframework.web.client.HttpClientErrorException.BadRequest e) {
+            // If we get a 400 error (likely due to distance limit), retry without alternative routes
+            if (e.getMessage().contains("exceed the server configuration limits")) {
+                System.out.println("Route distance exceeds limit for alternative routes. Retrying with standard route...");
+                // Remove the alternative_routes parameter and retry
+                requestBody.remove("alternative_routes");
+                entity = new HttpEntity<>(requestBody, headers);
+                apiResponse = restTemplate.postForObject(url, entity, Map.class);
+            } else {
+                // If it's another type of BadRequest error, rethrow
+                throw e;
+            }
+        }
         
         // Create our simplified response with only essential route data
         Map<String, Object> response = new HashMap<>();
