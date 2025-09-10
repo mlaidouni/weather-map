@@ -130,8 +130,8 @@ const Home: React.FC = () => {
 						if (!coords.length) return null;
 
 						// Optionally close polygon if not closed
-						const first = coords[0];
-						const last = coords[coords.length - 1];
+						const first = coords[0] as [number, number];
+						const last = coords[coords.length - 1] as [number, number];
 						if (first[0] !== last[0] || first[1] !== last[1]) {
 							coords.push(first);
 						}
