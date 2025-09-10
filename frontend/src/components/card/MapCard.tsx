@@ -8,6 +8,7 @@ import {
   ZoomControl,
   Polyline,
   useMapEvents,
+  Polygon,
 } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { LatLngExpression, Icon } from 'leaflet';
@@ -44,6 +45,12 @@ interface MapProps {
   showTempLayer?: boolean;
   showRainLayer?: boolean;
   routes: RouteData[];
+  smallZones?: Array<{
+    latMin: number;
+    latMax: number;
+    lonMin: number;
+    lonMax: number;
+  }>;
   startPin?: LatLngExpression | null;
   endPin?: LatLngExpression | null;
   onMapClick: (e: any) => void;
@@ -112,6 +119,7 @@ const MapCard: React.FC<MapProps> = ({
   showTempLayer = false,
   showRainLayer = false,
   routes = [],
+  smallZones = [],
   startPin = null,
   endPin = null,
   onMapClick,
@@ -147,6 +155,38 @@ const MapCard: React.FC<MapProps> = ({
             opacity={1.0}
           />
         )}
+
+        {/* Afficher les petites zones */}
+        {smallZones.map((smallZone, index) => {
+          
+          const zoneCoords: LatLngExpression[] = [
+            [smallZone.latMin, smallZone.lonMin],
+            [smallZone.latMin, smallZone.lonMax],
+            [smallZone.latMax, smallZone.lonMax],
+            [smallZone.latMax, smallZone.lonMin],
+            [smallZone.latMin, smallZone.lonMin],
+          ];
+          
+          return (
+            <Polygon
+              key={`small-zone-${index}`}
+              positions={zoneCoords}
+              pathOptions={{
+                color: 'rgba(220, 53, 69, 0.7)',
+                fillColor: 'rgba(220, 53, 69, 0.3)',
+                weight: 1,
+                fillOpacity: 0.2,
+                opacity: 0.7
+              }}
+            >
+              <Popup>
+                Zone {index + 1}<br/>
+                Lat: {smallZone.latMin.toFixed(4)} - {smallZone.latMax.toFixed(4)}<br/>
+                Lon: {smallZone.lonMin.toFixed(4)} - {smallZone.lonMax.toFixed(4)}
+              </Popup>
+            </Polygon>
+            );
+        })}
         {routes && routes.length > 0 && routes.map((route, index) => (
           <Polyline
             key={route.id}

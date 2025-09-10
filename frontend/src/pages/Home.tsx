@@ -53,6 +53,21 @@ const Home: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [zone, setZone] = useState<LatLngExpression[]>([]);
+  const [boundingBox, setBoundingBox] = useState<{
+    latMin: number;
+    latMax: number;
+    lonMin: number;
+    lonMax: number;
+  } | null>(null);
+
+  const [smallZones, setSmallZones] = useState<Array<{
+    latMin: number;
+    latMax: number;
+    lonMin: number;
+    lonMax: number;
+  }>>([]);
+
   const handleMapClick = (e: any) => {
     const { lat, lng } = e.latlng;
 
@@ -75,6 +90,8 @@ const Home: React.FC = () => {
     setStartPin(null);
     setEndPin(null);
     setError(null);
+    setZone([]);
+    setBoundingBox(null);
   };
 
   // Appel au backend pour calculer l'itinéraire quand les deux pins sont définis
@@ -94,6 +111,38 @@ const Home: React.FC = () => {
       // Conversion des pins en coordonnées lat/lng pour l'API
       const startLatLng = L.latLng(startPin);
       const endLatLng = L.latLng(endPin);
+
+      // Mise en place de la zone
+      const urlzone = `/api/routing/test-zone?startLat=${startLatLng.lat}&startLng=${startLatLng.lng}&endLat=${endLatLng.lat}&endLng=${endLatLng.lng}`;
+      const responsezone = await fetch(urlzone);
+      if (!responsezone.ok) {
+        console.error("Erreur lors de la récupération de la zone:", responsezone.status);
+      } else {
+        const datazone = await responsezone.json();
+        
+        // Stockage de la boundingBox globale dans l'état
+        if (datazone && datazone.boundingBox) {
+          setBoundingBox(datazone.boundingBox);
+          
+          // Conversion de la boundingBox en coordonnées pour affichage sur la carte
+          const boxCoordinates: LatLngExpression[] = [
+            [datazone.boundingBox.latMin, datazone.boundingBox.lonMin],
+            [datazone.boundingBox.latMin, datazone.boundingBox.lonMax],
+            [datazone.boundingBox.latMax, datazone.boundingBox.lonMax],
+            [datazone.boundingBox.latMax, datazone.boundingBox.lonMin],
+            [datazone.boundingBox.latMin, datazone.boundingBox.lonMin], // Fermer le polygone
+          ];
+          
+          setZone(boxCoordinates);
+        }
+        
+        // Stockage des petites zones
+        if (datazone && datazone.zones && Array.isArray(datazone.zones)) {
+          setSmallZones(datazone.zones);
+        }
+      } 
+
+
 
       // Construction de l'URL avec les paramètres
       const url = `/api/routing/weather-aware?startLat=${startLatLng.lat}&startLng=${startLatLng.lng}&endLat=${endLatLng.lat}&endLng=${endLatLng.lng}`;
@@ -235,6 +284,7 @@ const Home: React.FC = () => {
           showTempLayer={!!tempselected}
           showRainLayer={!!rainselected}
           routes={routes}
+          smallZones={smallZones}
           startPin={startPin}
           endPin={endPin}
           onMapClick={handleMapClick}

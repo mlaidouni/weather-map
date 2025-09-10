@@ -1,5 +1,6 @@
 package fr.weathermap.controllers;
 
+import fr.weathermap.services.AvoidZoneService;
 import fr.weathermap.services.RoutingService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -13,6 +14,9 @@ public class RoutingController {
 
     @Autowired
     private RoutingService routingService;
+
+    @Autowired
+    private AvoidZoneService avoidZoneService;
     
     @GetMapping("/weather-aware")
     public Map<String, Object> getWeatherAwareRoute(
@@ -24,5 +28,16 @@ public class RoutingController {
         
         return routingService.calculateWeatherAwareRoute(
                 startLat, startLng, endLat, endLng, avoidConditions);
+    }
+
+    @GetMapping("/test-zone")
+    public Map<String, Object> testZone(
+            @RequestParam double startLat,
+            @RequestParam double startLng,
+            @RequestParam double endLat,
+            @RequestParam double endLng
+    ) {
+        return avoidZoneService.smallZones(
+                startLat, startLng, endLat, endLng);
     }
 }
