@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { use, useEffect, useState } from "react";
 import MapCard from "../components/card/MapCard";
 import L, { LatLngExpression } from "leaflet";
 import {
@@ -81,12 +81,13 @@ const Home: React.FC = () => {
 	const [isRainMapSelected, setIsRainMapSelected] = useState(0);
 
 	// Recherche et Search bar
-	const [isSearchBarOpen, setIsSearchBarOpen] = useState(true);
-	const [isRouteSearchOpen, setIsRouteSearchOpen] = useState(false);
+	const [isRouteSearchBarOpen, setIsRouteSearchBarOpen] = useState(false);
 	const [queryStart, setQueryStart] = useState("");
-	const suggestions = useLocationSuggestions(queryStart);
 	const [queryEnd, setQueryEnd] = useState("");
+	const suggestionsStart = useLocationSuggestions(queryStart);
 	const suggestionsEnd = useLocationSuggestions(queryEnd);
+	const [showSuggestionStart, setShowSuggestionStart] = useState(true);
+	const [showSuggestionEnd, setShowSuggestionEnd] = useState(true);
 
 	// Localisation sélectionnée
 	const [startLocation, setStartLocation] = useState<LocationData | null>(null);
@@ -158,11 +159,47 @@ const Home: React.FC = () => {
 		}
 	};
 
-	const onSelectSuggestion = async (s: Suggestion) => {
-		// Ferme les suggestions
-		setIsSearchBarOpen(false);
+	// Mis à jour de la météo quand la localisation change
+	const fetchMeteo = async (loc: LocationData, setLoc: React.Dispatch<React.SetStateAction<LocationData | null>>) => {
+		try {
+			setLoc((prev) => (prev ? { ...prev, meteo: undefined } : prev));
+			setMeteoError(null);
+			setMeteoLoading(true);
+			const data: MeteoData = await fetchMeteoFromLocation(
+				loc.latitude,
+				loc.longitude
+			);
+			setLoc((prev) => (prev ? { ...prev, meteo: data } : prev));
+		} catch (e) {
+			console.error(e);
+			setMeteoError("Impossible de récupérer la météo.");
+		} finally {
+			setMeteoLoading(false);
+		}
+	};
+
+	const onSelectSuggestionStart = async (s: Suggestion) => {
 		setQueryStart(s.label);
+		setShowSuggestionStart(false);
 		setStartLocation({
+			name: s.label,
+			latitude: s.coordinates[0],
+			longitude: s.coordinates[1],
+		});
+
+		setCenter(s.coordinates as LatLngExpression);
+		setZoom(13);
+
+		// Ouvre la sheet et prépare affichage
+		setIsSheetOpen(true);
+		setMeteoError(null);
+		setMeteoLoading(true);
+	};
+
+	const onSelectSuggestionEnd = async (s: Suggestion) => {
+		setQueryEnd(s.label);
+		setShowSuggestionEnd(false);
+		setEndLocation({
 			name: s.label,
 			latitude: s.coordinates[0],
 			longitude: s.coordinates[1],
@@ -196,25 +233,7 @@ const Home: React.FC = () => {
 		if (startLocation && endLocation) fetchRoute();
 	}, [startLocation, endLocation]); // FIXME Déclencher uniquement si les coords changent ?
 
-	// Mis à jour de la météo quand la localisation de départ change
-	const fetchMeteo = async (loc: LocationData, setLoc: React.Dispatch<React.SetStateAction<LocationData | null>>) => {
-		try {
-			setLoc((prev) => (prev ? { ...prev, meteo: undefined } : prev));
-			setMeteoError(null);
-			setMeteoLoading(true);
-			const data: MeteoData = await fetchMeteoFromLocation(
-				loc.latitude,
-				loc.longitude
-			);
-			setLoc((prev) => (prev ? { ...prev, meteo: data } : prev));
-		} catch (e) {
-			console.error(e);
-			setMeteoError("Impossible de récupérer la météo.");
-		} finally {
-			setMeteoLoading(false);
-		}
-	};
-
+	// Mise à jour de la météo quand la localisation de départ change
 	useEffect(() => {
 		if (startLocation) fetchMeteo(startLocation, setStartLocation);
 		else
@@ -222,52 +241,93 @@ const Home: React.FC = () => {
 
 	}, [startLocation?.latitude, startLocation?.longitude]);
 
+	// Mise à jour de la météo quand la localisation d'arrivée change
+	useEffect(() => {
+		if (endLocation) fetchMeteo(endLocation, setEndLocation);
+		else setEndLocation((prev) => (prev ? { ...prev, meteo: undefined } : prev));
+	}, [endLocation?.latitude, endLocation?.longitude]);
+
+	// Affiche les suggestions quand la query change
+	useEffect(() => { setShowSuggestionStart(true); }, [queryStart]);
+	useEffect(() => { setShowSuggestionEnd(true); }, [queryEnd]);
+
+	// Masque les suggestions quand la localisation est sélectionnée
+	useEffect(() => { if (startLocation?.name) setShowSuggestionStart(false); }, [startLocation?.name]);
+	useEffect(() => { if (endLocation?.name) setShowSuggestionEnd(false); }, [endLocation?.name]);
+
+
 	// ---------- RENDER ----------
 	return (
 		<div className="relative w-full h-full">
-			{/* Bouton toggle la barre de recherche d'itinéraire (à droite de la barre de recherche) */}
+			{/* Bouton toggle la barre de recherche d'itinéraire */}
 			<Button
 				variant="secondary"
 				size="icon"
 				className="absolute top-4 left-4 z-10"
 				onClick={() =>
-					setIsSearchBarOpen((prev) => !prev)
-					// setIsRouteSearchOpen((prev) => !prev)
+					setIsRouteSearchBarOpen((prev) => !prev)
 
 				}
 			>
 				<ChevronRightIcon
-					className={`transition-transform duration-300 ${isSearchBarOpen ? "rotate-90" : ""
+					className={`transition-transform duration-300 ${isRouteSearchBarOpen ? "rotate-90" : ""
 						}`}
 				/>
 			</Button>
 
 			{/* Barre de recherche en haut à gauche */}
-			<div
-				className={`absolute top-4 left-16 z-10 transition-all duration-300 ${isSearchBarOpen ? "w-64 opacity-100" : "w-0 opacity-0"
-					} overflow-hidden`}
-			>
+			<div className={"absolute top-4 left-16 z-10 transition-all duration-300 w-72 opacity-100 bg-white shadow-lg rounded-lg p-2 space-y-3 overflow-hidden"}>
+				{/* Recherche départ et générale*/}
 				<Command>
 					<CommandInput
-						placeholder="Rechercher en France..."
+						placeholder="Rechercher dans GoogleMaps..."
 						value={queryStart}
 						onValueChange={setQueryStart}
 					/>
-					<CommandList>
-						<CommandGroup heading="Suggestions">
-							{suggestions.map((s, idx) => (
-								<CommandItem
-									key={idx}
-									value={s.label}
-									onSelect={() => onSelectSuggestion(s)}
-								>
-									{s.label}
-								</CommandItem>
-							))}
-						</CommandGroup>
-						<CommandEmpty>No results found.</CommandEmpty>
-					</CommandList>
+
+					{/* FIXME: Les suggestions devraient se masquer quand on sélectionne une suggestion */}
+					{showSuggestionStart && queryStart && (
+						<CommandList>
+							<CommandGroup heading="Suggestions">
+								{suggestionsStart.map((s, _) => (
+									<CommandItem
+										value={s.label}
+										onSelect={() => onSelectSuggestionStart(s)}
+									>
+										{s.label}
+									</CommandItem>
+								))}
+							</CommandGroup>
+							<CommandEmpty>Aucun résultat.</CommandEmpty>
+						</CommandList>)}
 				</Command>
+
+				{/* Recherche arrivée */}
+				{isRouteSearchBarOpen && (
+					<Command>
+						<CommandInput
+							placeholder="Destination..."
+							value={queryEnd}
+							onValueChange={setQueryEnd}
+						/>
+
+						{/* FIXME: Les suggestions devraient se masquer quand on sélectionne une suggestion */}
+						{showSuggestionEnd && queryEnd && (
+							<CommandList>
+								<CommandGroup heading="Suggestions">
+									{suggestionsEnd.map((s, idx) => (
+										<CommandItem
+											key={idx}
+											value={s.label}
+											onSelect={() => { onSelectSuggestionEnd(s); }}
+										>
+											{s.label}
+										</CommandItem>
+									))}
+								</CommandGroup>
+								<CommandEmpty>Aucun résultat.</CommandEmpty>
+							</CommandList>)}
+					</Command>)}
 			</div>
 
 			{/* Filtres */}
@@ -333,10 +393,8 @@ const Home: React.FC = () => {
 							className="mt-2 w-fit"
 							disabled={!meteoLoading && !meteoError && !startLocation?.meteo}
 							onClick={() => {
-								console.log("startLocation:", startLocation);
-								console.log("startLocation.meteo:", startLocation?.meteo);
-								// setIsRouteSearchOpen(true);
-								// setIsSheetOpen(false);
+								// TODO: Fermer le sheet et ouvrir la RouteSearchBar
+								// Puis pré-remplir le point de départ avec cette localisation
 							}}
 						>
 							Itinéraire
@@ -365,7 +423,7 @@ const Home: React.FC = () => {
 						{!meteoLoading && !meteoError && !startLocation && (
 							<div className="text-sm text-muted-foreground p-2">
 								<TriangleAlert className="inline-block mr-1 mb-1 text-yellow-500" />
-								Sélectionner une localisation pour afficher la météo.
+								Sélectionner une localisation de départ pour afficher la météo.
 							</div>
 						)}
 
@@ -530,7 +588,7 @@ const Home: React.FC = () => {
 			</Sheet>
 
 			{/* Conditional reopen button */}
-			{!isSheetOpen && !isRouteSearchOpen && (
+			{!isSheetOpen && !isRouteSearchBarOpen && (
 				<Button
 					variant="secondary"
 					size="icon"
