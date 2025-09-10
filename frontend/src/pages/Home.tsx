@@ -258,12 +258,12 @@ const Home: React.FC = () => {
         <MapFilterCard
           setSelected={setIsTempMapSelected}
           selected={isTempMapSelected}
-          img={"soleil.png"}
+          img={"../img/soleil.png"}
         />
         <MapFilterCard
           setSelected={setIsRainMapSelected}
           selected={isRainMapSelected}
-          img={"pluie.png"}
+          img={"../img/pluie.png"}
         />
       </div>
 
