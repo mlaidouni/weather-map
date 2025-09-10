@@ -33,7 +33,7 @@ import {
 	SheetHeader,
 	SheetTitle,
 } from "@/components/ui/sheet";
-import { fetchMeteoFromLocation } from "@/api/weather";
+import { fetchMeteoFromLocation, fetchRainZones } from "@/api/weather";
 import { fetchRoutingWeatherAware } from "@/api/routing";
 import { LocationData } from "@/types/locationData";
 import { Suggestion } from "@/types/suggestion";
@@ -103,14 +103,8 @@ const Home: React.FC = () => {
 				startLocation.longitude
 			);
 			const endLatLng = L.latLng(endLocation.latitude, endLocation.longitude);
-			const urlRainZones = `/api/weather/rain/zone?startLat=${startLatLng.lat}&startLng=${startLatLng.lng}&endLat=${endLatLng.lat}&endLng=${endLatLng.lng}`;
-			const responseRainZones = await fetch(urlRainZones);
 
-			if (!responseRainZones.ok) {
-				throw new Error(`Erreur API: ${responseRainZones.status}`);
-			}
-
-			const rainingZonesMap = await responseRainZones.json();
+			const rainingZonesMap = await fetchRainZones(startLatLng, endLatLng);
 			const rainingZones = rainingZonesMap.polygons;
 
 			// raining_zones is ALWAYS: [ [ [lat,lng], [lat,lng], ... ],  ... ]
@@ -148,7 +142,6 @@ const Home: React.FC = () => {
 
 				setAreas(polygons);
 			}
-
 
 			const data = await fetchRoutingWeatherAware(startLatLng, endLatLng);
 
