@@ -25,7 +25,10 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import MapFilterCard from "@/components/card/MapFilterCard";
-import { Suggestion, useLocationSuggestions } from "../hooks/useLocationSuggestions";
+import {
+  Suggestion,
+  useLocationSuggestions,
+} from "../hooks/useLocationSuggestions";
 import {
   Sheet,
   SheetContent,
@@ -79,8 +82,11 @@ const Home: React.FC = () => {
 
   // Recherche et Search bar
   const [isSearchBarOpen, setIsSearchBarOpen] = useState(true);
-  const [query, setQuery] = useState("");
-  const suggestions = useLocationSuggestions(query);
+  const [isRouteSearchOpen, setIsRouteSearchOpen] = useState(false);
+  const [queryStart, setQueryStart] = useState("");
+  const suggestions = useLocationSuggestions(queryStart);
+  const [queryEnd, setQueryEnd] = useState("");
+  const suggestionsEnd = useLocationSuggestions(queryEnd);
 
   // Localisation sélectionnée
   const [startLocation, setStartLocation] = useState<LocationData | null>(null);
@@ -117,25 +123,25 @@ const Home: React.FC = () => {
     setRouteError(null);
   };
 
-	const onSelectSuggestion = async (s: Suggestion) => {
-		// Ferme les suggestions
-		setIsSearchBarOpen(false);
-		setQuery(s.label);
-		setStartLocation({
-			name: s.label,
-			latitude: s.coordinates[0],
-			longitude: s.coordinates[1],
-		});
+  const onSelectSuggestion = async (s: Suggestion) => {
+    // Ferme les suggestions
+    setIsSearchBarOpen(false);
+    setQueryStart(s.label);
+    setStartLocation({
+      name: s.label,
+      latitude: s.coordinates[0],
+      longitude: s.coordinates[1],
+    });
 
-		setCenter(s.coordinates as LatLngExpression);
-		setZoom(13);
+    setCenter(s.coordinates as LatLngExpression);
+    setZoom(13);
 
-		// Ouvre la sheet et prépare affichage
-		setIsSheetOpen(true);
-		setMeteo(null);
-		setMeteoError(null);
-		setMeteoLoading(true);
-	};
+    // Ouvre la sheet et prépare affichage
+    setIsSheetOpen(true);
+    setMeteo(null);
+    setMeteoError(null);
+    setMeteoLoading(true);
+  };
 
   /// ---- Effets ----
   const handleMapClick = (e: any) => {
@@ -247,9 +253,9 @@ const Home: React.FC = () => {
       >
         <Command>
           <CommandInput
-            placeholder="Search city..."
-            value={query}
-            onValueChange={setQuery}
+            placeholder="Rechercher en France..."
+            value={queryStart}
+            onValueChange={setQueryStart}
           />
           <CommandList>
             <CommandGroup heading="Suggestions">
@@ -257,9 +263,7 @@ const Home: React.FC = () => {
                 <CommandItem
                   key={idx}
                   value={s.label}
-                  onSelect={
-                    () => onSelectSuggestion(s)
-                  }
+                  onSelect={() => onSelectSuggestion(s)}
                 >
                   {s.label}
                 </CommandItem>
@@ -333,8 +337,8 @@ const Home: React.FC = () => {
               className="mt-2 w-fit"
               disabled={!meteoLoading && !meteoError && !meteo}
               onClick={() => {
-                // TODO Gérer le clic sur le bouton "Itinéraire"
-                console.log("3- StartLocation:", startLocation);
+                setIsRouteSearchOpen(true);
+                setIsSheetOpen(false);
               }}
             >
               Itinéraire
@@ -524,7 +528,7 @@ const Home: React.FC = () => {
       </Sheet>
 
       {/* Conditional reopen button */}
-      {!isSheetOpen && startLocation && (
+      {!isSheetOpen && !isRouteSearchOpen && (
         <Button
           variant="secondary"
           size="icon"
