@@ -11,18 +11,18 @@ import java.util.Map;
 @RequestMapping("/api/routing")
 public class RoutingController {
 
-    @Autowired
-    private RoutingService routingService;
-    
-    @GetMapping("/weather-aware")
-    public Map<String, Object> getWeatherAwareRoute(
-            @RequestParam double startLat,
-            @RequestParam double startLng,
-            @RequestParam double endLat,
-            @RequestParam double endLng,
-            @RequestParam(required = false, defaultValue = "") List<String> avoidConditions) {            
-        
-        return routingService.calculateWeatherAwareRoute(
-                startLat, startLng, endLat, endLng, avoidConditions);
-    }
+	@Autowired
+	private RoutingService routingService;
+
+	@GetMapping("/weather-aware")
+	public Map<String, Object> getWeatherAwareRoute(
+			@RequestParam double startLat,
+			@RequestParam double startLng,
+			@RequestParam double endLat,
+			@RequestParam double endLng,
+			@RequestParam(required = false, defaultValue = "") List<String> avoidConditions) {
+
+		return routingService.calculateWeatherAwareRoute(
+				startLat, startLng, endLat, endLng, avoidConditions);
+	}
 }

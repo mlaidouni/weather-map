@@ -27,7 +27,6 @@ public class WeatherController {
 				+ "&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,rain,precipitation,cloud_cover,visibility";
 		Map response = restTemplate.getForObject(url, Map.class);
 
-
 		// On prépare un JSON simplifié
 		Map<String, Object> filtered = new HashMap<>();
 		filtered.put("latitude", lat);
