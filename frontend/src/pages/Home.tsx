@@ -309,6 +309,17 @@ const Home: React.FC = () => {
                 </div>
               )}
             </SheetDescription>
+            <Button
+              variant="default"
+              size="sm"
+              className="mt-2 w-fit"
+              disabled={!meteoLoading && !meteoError && !meteo}
+              onClick={() => {
+                // TODO Gérer le clic sur le bouton "Itinéraire"
+              }}
+            >
+              Itinéraire
+            </Button>
           </SheetHeader>
 
           <div className="mt-4 space-y-3">
@@ -490,6 +501,18 @@ const Home: React.FC = () => {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Conditional reopen button */}
+      {!isSheetOpen && query && (
+        <Button
+          variant="secondary"
+          size="icon"
+          className="absolute top-1/2 left-5 -translate-y-1/2 z-10"
+          onClick={() => setIsSheetOpen(true)}
+        >
+          <ChevronLeftIcon className="rotate-180" />
+        </Button>
+      )}
     </div>
   );
 };
