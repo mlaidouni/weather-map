@@ -1,33 +1,166 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import MapCard from "../components/card/MapCard";
-import { LatLngExpression } from "leaflet";
-import { Command, CommandInput } from "@/components/ui/command";
+import L, { LatLngExpression } from "leaflet";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { ChevronRightIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import MapFilterCard from "@/components/card/MapFilterCard";
+import { useLocationSuggestions } from "../hooks/useLocationSuggestions";
+import { Marker } from "react-leaflet";
+import { RouteData } from "@/types/routes";
 
-const cities: Record<string, LatLngExpression> = {
-  paris: [48.8566, 2.3522],
-  lyon: [45.764, 4.8357],
-  marseille: [43.2965, 5.3698],
-};
+const markerIcon = L.icon({
+  iconUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png",
+  shadowUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png",
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
+});
+
+// Import Sheet shadcn/ui
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 
 const Home: React.FC = () => {
   const [center, setCenter] = useState<LatLngExpression>([48.86, 2.33]);
   const [zoom, setZoom] = useState(12);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(false); // toggle barre de recherche
   const [query, setQuery] = useState("");
+
   const [tempselected, setTempSelected] = useState(0);
   const [rainselected, setRainSelected] = useState(0);
 
-  const handleSearch = (value: string) => {
-    const key = value.toLowerCase().trim();
-    if (cities[key]) {
-      setCenter(cities[key]);
-      setZoom(13);
+  // état pour la Sheet
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
+
+  const suggestions = useLocationSuggestions(query);
+  const [startPin, setStartPin] = useState<LatLngExpression | null>(null);
+  const [endPin, setEndPin] = useState<LatLngExpression | null>(null);
+
+  const [routes, setRoutes] = useState<RouteData[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleMapClick = (e: any) => {
+    const { lat, lng } = e.latlng;
+
+    // Si le point de départ n'est pas défini, on le définit
+    if (!startPin) {
+      setStartPin([lat, lng]);
+    }
+    // Sinon, si le point d'arrivée n'est pas défini, on le définit
+    else if (!endPin) {
+      setEndPin([lat, lng]);
+    }
+    // Si les deux sont définis, on réinitialise le point de départ et on efface le point d'arrivée
+    else {
+      clearPoints();
     }
   };
+
+  const clearPoints = () => {
+    setRoutes([]);
+    setStartPin(null);
+    setEndPin(null);
+    setError(null);
+  };
+
+  // Appel au backend pour calculer l'itinéraire quand les deux pins sont définis
+  useEffect(() => {
+    if (startPin && endPin) {
+      fetchRoute();
+    }
+  }, [startPin, endPin]);
+
+  const fetchRoute = async () => {
+    if (!startPin || !endPin) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Conversion des pins en coordonnées lat/lng pour l'API
+      const startLatLng = L.latLng(startPin);
+      const endLatLng = L.latLng(endPin);
+
+      // Construction de l'URL avec les paramètres
+      const url = `/api/routing/weather-aware?startLat=${startLatLng.lat}&startLng=${startLatLng.lng}&endLat=${endLatLng.lat}&endLng=${endLatLng.lng}`;
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error(`Erreur API: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const apiRoutes = data.routes;
+
+      if (!apiRoutes || apiRoutes.length === 0) {
+        setError("Aucun itinéraire trouvé");
+        return;
+      }
+
+      // Traitement des données de l'itinéraire
+      if (Array.isArray(apiRoutes) && apiRoutes.length > 0) {
+        const processedRoutes: RouteData[] = apiRoutes.map((route, index) => {
+          // Process coordinates
+          const coordinates = route.coordinates
+            .map((coord: number[]) => {
+              const lat = Number(coord[0]);
+              const lng = Number(coord[1]);
+
+              if (isNaN(lat) || isNaN(lng)) {
+                console.error("Coordonnée invalide:", coord);
+                return null;
+              }
+              return [lat, lng] as LatLngExpression;
+            })
+            .filter(Boolean);
+
+          // Calculate distance in km (rounded to 1 decimal)
+          const distance = route.distance
+            ? Math.round(route.distance / 1000 * 10) / 10
+            : 0;
+
+          // Calculate duration in minutes
+          const duration = route.duration
+            ? Math.round(route.duration / 60)
+            : 0;
+
+          return {
+            id: `route-${index}`,
+            coordinates,
+            distance,
+            duration
+          };
+        });
+
+        setRoutes(processedRoutes);
+      }
+      else {
+        setError("Format de données invalide");
+      }
+    }
+    catch (err) {
+      console.error("Erreur lors de la récupération de l'itinéraire:", err);
+      setError("Impossible de calculer l'itinéraire");
+    }
+    finally {
+      setLoading(false);
+    }
+  };
+
 
   return (
     <div className="relative w-full h-full">
@@ -39,32 +172,48 @@ const Home: React.FC = () => {
         onClick={() => setOpen((prev) => !prev)}
       >
         <ChevronRightIcon
-          className={`transition-transform duration-300 ${
-            open ? "rotate-90" : ""
-          }`}
+          className={`transition-transform duration-300 ${open ? "rotate-90" : ""
+            }`}
         />
       </Button>
-
       {/* Barre de recherche en haut à gauche */}
       <div
-        className={`absolute top-4 left-16 z-10 transition-all duration-300 ${
-          open ? "w-64 opacity-100" : "w-0 opacity-0"
-        } overflow-hidden`}
+        className={`absolute top-4 left-16 z-10 transition-all duration-300 ${open ? "w-64 opacity-100" : "w-0 opacity-0"
+          } overflow-hidden`}
       >
         <Command>
           <CommandInput
             placeholder="Search city..."
             value={query}
             onValueChange={setQuery}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                handleSearch(query);
-              }
-            }}
           />
+          <CommandList>
+            <CommandGroup heading="Suggestions">
+              {suggestions.map((s, idx) => (
+                <CommandItem
+                  key={idx}
+                  value={s.label}
+                  onSelect={() => {
+                    // On masque les suggestions
+                    setOpen(false);
+                    const coord = s.coordinates as LatLngExpression;
+                    setCenter(coord);
+                    setZoom(13);
+                    setQuery(s.label);
+                    setIsSheetOpen(true); // ouvrir la sheet
+                    // TODO: set Start Coord
+                  }}
+                >
+                  {s.label}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+            <CommandEmpty>No results found.</CommandEmpty>
+          </CommandList>
         </Command>
       </div>
+
+      {/* Filtres */}
       <div className="absolute top-4 right-20 z-10 flex flex-row gap-2">
         <MapFilterCard
           setSelected={setTempSelected}
@@ -78,15 +227,28 @@ const Home: React.FC = () => {
         />
       </div>
 
+      {/* Carte */}
       <div className="w-full h-full">
         <MapCard
           center={center}
           zoom={zoom}
           showTempLayer={!!tempselected}
           showRainLayer={!!rainselected}
-          listStops={[[48.846951, 2.340645],[48.845090, 2.345575]]}
+          routes={routes}
+          startPin={startPin}
+          endPin={endPin}
+          onMapClick={handleMapClick}
         />
       </div>
+
+      {/* Sheet vierge */}
+      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+        <SheetContent side="left" className="w-[380px] sm:w-[420px]">
+          <SheetHeader>
+            <SheetTitle>{query}</SheetTitle>
+          </SheetHeader>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 };

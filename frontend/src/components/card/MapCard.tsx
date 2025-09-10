@@ -7,18 +7,46 @@ import {
   useMap,
   ZoomControl,
   Polyline,
+  useMapEvents,
 } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import { LatLngExpression } from 'leaflet';
+import { LatLngExpression, Icon } from 'leaflet';
+import L from 'leaflet';
+
+import { RouteData } from "@/types/routes";
 
 const apikey = import.meta.env.VITE_OPEN_WEATHER_API_KEY;
+
+
+const startIcon = L.icon({
+  iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41]
+});
+
+const endIcon = L.icon({
+  iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41]
+});
+
+L.Marker.prototype.options.icon = startIcon;
 
 interface MapProps {
   center: LatLngExpression;
   zoom: number;
   showTempLayer?: boolean;
   showRainLayer?: boolean;
-  listStops?: LatLngExpression[];
+  routes: RouteData[];
+  startPin?: LatLngExpression | null;
+  endPin?: LatLngExpression | null;
+  onMapClick: (e: any) => void;
 }
 
 interface MapSettingsUpdaterProps {
@@ -35,6 +63,15 @@ function RecenterOnPropChange({ //Fonction qui permet de recentrer la carte dyna
   useEffect(() => {
     map.flyTo(center as any, zoom, { duration: 0.7 }); // ou map.setView(center as any, zoom)
   }, [center, zoom, map]);
+  return null;
+}
+
+function MapClickHandler({ onMapClick }: { onMapClick: (e: any) => void }) {
+  useMapEvents({
+    click: (e) => {
+      onMapClick(e);
+    },
+  });
   return null;
 }
 
@@ -74,7 +111,10 @@ const MapCard: React.FC<MapProps> = ({
   zoom,
   showTempLayer = false,
   showRainLayer = false,
-  listStops = [],
+  routes = [],
+  startPin = null,
+  endPin = null,
+  onMapClick,
 }) => {
   return (
     <div className="map-container w-full h-screen">
@@ -87,6 +127,7 @@ const MapCard: React.FC<MapProps> = ({
         className="z-0"
       >
         <MapResizeHandler />
+        <MapClickHandler onMapClick={onMapClick} />
         <ZoomControl position="topright" />
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -96,7 +137,7 @@ const MapCard: React.FC<MapProps> = ({
           <TileLayer
             url={`https://tile.openweathermap.org/map/temp_new/{z}/{x}/{y}.png?appid=${apikey}`}
             attribution="&copy; OpenWeatherMap"
-            opacity={1.0}
+            opacity={0.8}
           />
         )}
         {showRainLayer && (
@@ -106,14 +147,52 @@ const MapCard: React.FC<MapProps> = ({
             opacity={1.0}
           />
         )}
-        {listStops.length > 0 && (
-          <Polyline positions={listStops} color="red" />
+        {routes && routes.length > 0 && routes.map((route, index) => (
+          <Polyline
+            key={route.id}
+            positions={route.coordinates}
+            pathOptions={{
+              color: ["#3b82f6", "#10b981", "#8b5cf6", "#ef4444", "#f59e0b"][index % 5],
+              // Increase minimum weight for better visibility
+              weight: Math.max(4, 7 - index), // Minimum weight of 4 for all routes
+              // Keep higher opacity for better visibility
+              opacity: Math.max(0.6, 0.9 - (index * 0.1)),
+              // Adjust dash patterns for better visibility
+              dashArray: index === 0 ? undefined :
+                        index === 1 ? "10, 10" :  // Longer dashes
+                        index === 2 ? "5, 5" :    // Medium dashes
+                        "15, 10",                 // Long dash, short gap
+              lineCap: "round",
+              lineJoin: "round"
+            }}
+          />
+        ))}
+
+        {/* Afficher le point de départ s'il existe */}
+        {startPin && (
+          <Marker position={startPin} icon={startIcon}>
+            <Popup>
+              Point de départ<br />
+              Position: {(startPin as [number, number])[0].toFixed(5)}, {(startPin as [number, number])[1].toFixed(5)}
+            </Popup>
+          </Marker>
         )}
-        
+
+        {/* Afficher le point d'arrivée s'il existe */}
+        {endPin && (
+          <Marker position={endPin} icon={endIcon}>
+            <Popup>
+              Point d'arrivée<br />
+              Position: {(endPin as [number, number])[0].toFixed(5)}, {(endPin as [number, number])[1].toFixed(5)}
+            </Popup>
+          </Marker>
+        )}
+
         <RecenterOnPropChange center={center} zoom={zoom} />
       </MapContainer>
     </div>
   );
 };
+
 
 export default MapCard;
