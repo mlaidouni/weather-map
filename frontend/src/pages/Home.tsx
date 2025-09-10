@@ -34,6 +34,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { fetchMeteoFromLocation } from "@/api/weather";
+import { fetchRoutingWeatherAware } from "@/api/routing";
 
 /// ---- Types ----
 // Types pour une localisation
@@ -149,13 +150,7 @@ const Home: React.FC = () => {
       );
       const endLatLng = L.latLng(endLocation.latitude, endLocation.longitude);
 
-      // Construction de l'URL avec les paramètres
-      const url = `/api/routing/weather-aware?startLat=${startLatLng.lat}&startLng=${startLatLng.lng}&endLat=${endLatLng.lat}&endLng=${endLatLng.lng}`;
-
-      const response = await fetch(url);
-      if (!response.ok) throw new Error(`Erreur API: ${response.status}`);
-
-      const data = await response.json();
+      const data = await fetchRoutingWeatherAware(startLatLng, endLatLng);
 
       if (data.coordinates && Array.isArray(data.coordinates)) {
         // Conversion des coordonnées au format Leaflet (inversé par rapport à l'API)
