@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from "react";
 import {
 	MapContainer,
 	TileLayer,
@@ -8,10 +8,10 @@ import {
 	ZoomControl,
 	Polyline,
 	useMapEvents,
-	Polygon,
-} from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import L, { LatLngExpression } from 'leaflet';
+		Polygon,
+} from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+import L, { LatLngExpression } from "leaflet";
 
 import { RouteData } from "@/types/routes";
 import { Area } from "@/types/area";
@@ -21,21 +21,21 @@ const DEBUG = import.meta.env.DEBUG === 'true';
 
 
 const startIcon = L.icon({
-	iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
-	shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
+	iconUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png",
+	shadowUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png",
 	iconSize: [25, 41],
 	iconAnchor: [12, 41],
 	popupAnchor: [1, -34],
-	shadowSize: [41, 41]
+	shadowSize: [41, 41],
 });
 
 const endIcon = L.icon({
-	iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
-	shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
+	iconUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png",
+	shadowUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png",
 	iconSize: [25, 41],
 	iconAnchor: [12, 41],
 	popupAnchor: [1, -34],
-	shadowSize: [41, 41]
+	shadowSize: [41, 41],
 });
 
 L.Marker.prototype.options.icon = startIcon;
@@ -45,6 +45,8 @@ interface MapProps {
 	zoom: number;
 	showTempLayer?: boolean;
 	showRainLayer?: boolean;
+	showCloudLayer?: boolean;
+	showWindLayer?: boolean;
 	routes: RouteData[];
 	areas?: Area[];
 	startPin?: LatLngExpression | null;
@@ -55,7 +57,9 @@ interface MapProps {
 interface MapSettingsUpdaterProps {
 	useOnlineTiles: boolean;
 }
-function RecenterOnPropChange({ //Fonction qui permet de recentrer la carte dynamiquement 
+
+// Fonction qui permet de recentrer la carte dynamiquement
+function RecenterOnPropChange({
 	center,
 	zoom,
 }: {
@@ -114,6 +118,8 @@ const MapCard: React.FC<MapProps> = ({
 	zoom,
 	showTempLayer = false,
 	showRainLayer = false,
+	showCloudLayer = false,
+	showWindLayer = false,
 	routes = [],
 	areas = [],
 	startPin = null,
@@ -127,7 +133,7 @@ const MapCard: React.FC<MapProps> = ({
 				zoom={zoom}
 				scrollWheelZoom={true}
 				zoomControl={false}
-				style={{ height: '100%', width: '100%' }}
+				style={{ height: "100%", width: "100%" }}
 				className="z-0"
 			>
 				<MapResizeHandler />
@@ -135,18 +141,35 @@ const MapCard: React.FC<MapProps> = ({
 				<ZoomControl position="topright" />
 				<TileLayer
 					attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-					url={'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'}
+					url={"https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"}
 				/>
 				{showTempLayer && (
 					<TileLayer
 						url={`https://tile.openweathermap.org/map/temp_new/{z}/{x}/{y}.png?appid=${apikey}`}
 						attribution="&copy; OpenWeatherMap"
-						opacity={0.8}
+						opacity={1.0}
 					/>
 				)}
+				
 				{showRainLayer && (
 					<TileLayer
 						url={`https://tile.openweathermap.org/map/precipitation_new/{z}/{x}/{y}.png?appid=${apikey}`}
+						attribution="&copy; OpenWeatherMap"
+						opacity={1.0}
+					/>
+				)}
+
+				{showCloudLayer && (
+					<TileLayer
+						url={`https://tile.openweathermap.org/map/clouds_new/{z}/{x}/{y}.png?appid=${apikey}`}
+						attribution="&copy; OpenWeatherMap"
+						opacity={1.0}
+					/>
+				)}
+
+				{showWindLayer && (
+					<TileLayer
+						url={`https://tile.openweathermap.org/map/wind_new/{z}/{x}/{y}.png?appid=${apikey}`}
 						attribution="&copy; OpenWeatherMap"
 						opacity={1.0}
 					/>
