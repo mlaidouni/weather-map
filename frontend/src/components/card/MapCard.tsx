@@ -39,6 +39,8 @@ interface MapProps {
 	zoom: number;
 	showTempLayer?: boolean;
 	showRainLayer?: boolean;
+	showCloudLayer?: boolean;
+	showWindLayer?: boolean;
 	listStops?: LatLngExpression[];
 	startCoord?: LatLngExpression | null;
 	endCoord?: LatLngExpression | null;
@@ -109,6 +111,8 @@ const MapCard: React.FC<MapProps> = ({
 	zoom,
 	showTempLayer = false,
 	showRainLayer = false,
+	showCloudLayer = false,
+	showWindLayer = false,
 	listStops = [],
 	startCoord = null,
 	endCoord = null,
@@ -138,9 +142,26 @@ const MapCard: React.FC<MapProps> = ({
 						opacity={1.0}
 					/>
 				)}
+				
 				{showRainLayer && (
 					<TileLayer
 						url={`https://tile.openweathermap.org/map/precipitation_new/{z}/{x}/{y}.png?appid=${apikey}`}
+						attribution="&copy; OpenWeatherMap"
+						opacity={1.0}
+					/>
+				)}
+
+				{showCloudLayer && (
+					<TileLayer
+						url={`https://tile.openweathermap.org/map/clouds_new/{z}/{x}/{y}.png?appid=${apikey}`}
+						attribution="&copy; OpenWeatherMap"
+						opacity={1.0}
+					/>
+				)}
+
+				{showWindLayer && (
+					<TileLayer
+						url={`https://tile.openweathermap.org/map/wind_new/{z}/{x}/{y}.png?appid=${apikey}`}
 						attribution="&copy; OpenWeatherMap"
 						opacity={1.0}
 					/>

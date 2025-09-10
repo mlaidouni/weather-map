@@ -46,6 +46,8 @@ const Home: React.FC = () => {
 	// Filtre de la map
 	const [isTempMapSelected, setIsTempMapSelected] = useState(0);
 	const [isRainMapSelected, setIsRainMapSelected] = useState(0);
+	const [isCloudMapSelected, setIsCloudMapSelected] = useState(0);
+	const [isWindMapSelected, setIsWindMapSelected] = useState(0);
 
 	// Recherche et Search bar
 	const [isRouteSearchBarOpen, setIsRouteSearchBarOpen] = useState(false);
@@ -311,6 +313,16 @@ const Home: React.FC = () => {
 					selected={isRainMapSelected}
 					img={"../img/pluie.png"}
 				/>
+				<MapFilterCard
+					setSelected={setIsCloudMapSelected}
+					selected={isCloudMapSelected}
+					img={"../img/nuage.png"}
+				/>
+				<MapFilterCard
+					setSelected={setIsWindMapSelected}
+					selected={isWindMapSelected}
+					img={"../img/vent.png"}
+				/>
 			</div>
 
 			{/* Carte */}
@@ -320,6 +332,8 @@ const Home: React.FC = () => {
 					zoom={zoom}
 					showTempLayer={!!isTempMapSelected}
 					showRainLayer={!!isRainMapSelected}
+					showCloudLayer={!!isCloudMapSelected}
+					showWindLayer={!!isWindMapSelected}
 					listStops={routePath.length > 0 ? routePath : []}
 					startCoord={
 						startLocation?.latitude && startLocation?.longitude
