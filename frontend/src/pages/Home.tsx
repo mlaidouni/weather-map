@@ -25,10 +25,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import MapFilterCard from "@/components/card/MapFilterCard";
-import {
-	Suggestion,
-	useLocationSuggestions,
-} from "../hooks/useLocationSuggestions";
+import { useLocationSuggestions } from "../hooks/useLocationSuggestions";
 import {
 	Sheet,
 	SheetContent,
@@ -39,6 +36,7 @@ import {
 import { fetchMeteoFromLocation } from "@/api/weather";
 import { fetchRoutingWeatherAware } from "@/api/routing";
 import { LocationData } from "@/types/locationData";
+import { Suggestion } from "@/types/suggestion";
 
 const Home: React.FC = () => {
 	/// ---- États ----
@@ -74,7 +72,7 @@ const Home: React.FC = () => {
 	// Sheet
 	const [isSheetOpen, setIsSheetOpen] = useState(false);
 
-	//  états météo
+	// Météo
 	const [meteoLoading, setMeteoLoading] = useState(false);
 	const [meteoError, setMeteoError] = useState<string | null>(null);
 
@@ -198,7 +196,7 @@ const Home: React.FC = () => {
 		else clearPoints();
 	};
 
-	// Calcule l'itinéraire quand les deux pins sont définis
+	// Calculer l'itinéraire quand les deux pins sont définis
 	useEffect(() => {
 		if (startLocation && endLocation) fetchRoute();
 	}, [startLocation, endLocation]); // FIXME Déclencher uniquement si les coords changent ?
@@ -259,8 +257,9 @@ const Home: React.FC = () => {
 					{showSuggestionStart && queryStart && (
 						<CommandList>
 							<CommandGroup heading="Suggestions">
-								{suggestionsStart.map((s, _) => (
+								{suggestionsStart.map((s, idx) => (
 									<CommandItem
+										key={idx}
 										value={s.label}
 										onSelect={() => onSelectSuggestionStart(s)}
 									>
