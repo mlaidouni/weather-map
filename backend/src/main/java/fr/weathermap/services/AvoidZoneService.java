@@ -20,6 +20,34 @@ public class AvoidZoneService {
 
     private double MARGE = 30.0; // marge en km
 
+    public Map<String, Double> expandedArea(
+            double startLat, double startLng,
+            double endLat, double endLng,
+            double marginKm
+    ) {
+        double latCenter = (startLat + endLat) / 2.0;
+
+        // Conversion marge en degrés
+        double latOffset = marginKm / 111.0;
+        double lonOffset = marginKm / (111.0 * Math.cos(Math.toRadians(latCenter)));
+
+        // Bounding box centrée sur start et end
+        double latMin = Math.min(startLat, endLat) - latOffset;
+        double latMax = Math.max(startLat, endLat) + latOffset;
+        double lonMin = Math.min(startLng, endLng) - lonOffset;
+        double lonMax = Math.max(startLng, endLng) + lonOffset;
+
+        Map<String, Double> response = new HashMap<>();
+        response.put("latMin", latMin);
+        response.put("latMax", latMax);
+        response.put("lonMin", lonMin);
+        response.put("lonMax", lonMax);
+
+        // pour prendre le coin en haut à gauche, il faut choisir (latMax, lonMin)
+
+        return response;
+    }
+
     public Map<String, Object> zone_total(
         List<List<Double>> coordinates
     ){

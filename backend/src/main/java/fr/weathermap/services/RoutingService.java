@@ -5,6 +5,7 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.io.IOException;
 import java.util.*;
 
 @Service
@@ -12,6 +13,9 @@ public class RoutingService {
 
     @Autowired
     private AvoidZoneService avoidZoneService;
+
+    @Autowired
+    private RainViewerRadarPolygonService rainViewerRadarPolygonService;
 
     private final String valhallaAPI = "http://37.187.49.205:8002/route";
 
@@ -111,8 +115,14 @@ public class RoutingService {
 
         // Add avoid polygons if "rain" is in avoidWeatherConditions
         if(avoidWeatherConditions != null && avoidWeatherConditions.contains("rain")) {
-            List<List<Double>> routeCoords = calculateSimpleRoute(startLat, startLng, endLat, endLng);
-            List<List<List<Double>>> polygonsLonLat = avoidZoneService.rainingPolygonsLonLat(routeCoords);
+            Map<String, Double> expandedArea = avoidZoneService.expandedArea(startLat, startLng, endLat, endLng, 1.0);
+            List<List<List<Double>>> polygonsLonLat;
+            try {
+                polygonsLonLat = rainViewerRadarPolygonService.fetchRainPolygons(expandedArea.get("latMax"), expandedArea.get("lonMin"), expandedArea.get("latMin"), expandedArea.get("lonMax"));
+            } catch (Exception e) {
+                response.put("error", "Failed to fetch rain polygons: " + e.getMessage());
+                return response;
+            }
             requestBody.put("exclude_polygons", polygonsLonLat);
             response.put("raining_zones", avoidZoneService.reverseLonLat(polygonsLonLat));
         }
