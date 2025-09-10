@@ -404,10 +404,11 @@ const Home: React.FC = () => {
 							variant="default"
 							size="sm"
 							className="mt-2 w-fit"
-							disabled={!meteoLoading && !meteoError && !meteo}
+							disabled={!meteoLoading && !meteoError && !startLocation?.meteo}
 							onClick={() => {
 								setIsRouteSearchOpen(true);
 								setIsSheetOpen(false);
+								console.log("startLocation:", startLocation);
 							}}
 						>
 							Itinéraire
@@ -433,7 +434,7 @@ const Home: React.FC = () => {
 						)}
 
 						{/* Aucune donnée */}
-						{!meteoLoading && !meteoError && !meteo && (
+						{!meteoLoading && !meteoError && !startLocation && (
 							<div className="text-sm text-muted-foreground p-2">
 								<TriangleAlert className="inline-block mr-1 mb-1 text-yellow-500" />
 								Sélectionner une localisation pour afficher la météo.
@@ -472,7 +473,7 @@ const Home: React.FC = () => {
             </Tabs> */}
 
 						{/* Affichage des données météo */}
-						{!meteoLoading && !meteoError && meteo && (
+						{!meteoLoading && !meteoError && startLocation?.meteo && (
 							<div className="grid grid-cols-2">
 								{/* Section 1 : Météo actuelle */}
 								<div className="col-span-2 flex items-center gap-2 my-6">
@@ -490,9 +491,9 @@ const Home: React.FC = () => {
 											Température
 										</div>
 										<div className="text-xl font-semibold">
-											{meteo.temperature ?? "-"}
-											{meteo.temperature_unit
-												? ` ${meteo.temperature_unit}`
+											{startLocation?.meteo?.temperature ?? "-"}
+											{startLocation?.meteo?.temperature_unit
+												? ` ${startLocation.meteo.temperature_unit}`
 												: " °C"}
 										</div>
 									</div>
@@ -503,9 +504,9 @@ const Home: React.FC = () => {
 											Température ressentie
 										</div>
 										<div className="text-xl font-semibold">
-											{meteo.apparent_temperature ?? "-"}
-											{meteo.apparent_temperature_unit
-												? ` ${meteo.apparent_temperature_unit}`
+											{startLocation?.meteo?.apparent_temperature ?? "-"}
+											{startLocation?.meteo?.apparent_temperature_unit
+												? ` ${startLocation.meteo.apparent_temperature_unit}`
 												: " °C"}
 										</div>
 									</div>
@@ -516,8 +517,10 @@ const Home: React.FC = () => {
 											Humidité
 										</div>
 										<div className="text-xl font-semibold">
-											{meteo.humidity ?? "-"}
-											{meteo.humidity_unit ? ` ${meteo.humidity_unit}` : " %"}
+											{startLocation?.meteo?.humidity ?? "-"}
+											{startLocation?.meteo?.humidity_unit
+												? ` ${startLocation.meteo.humidity_unit}`
+												: " %"}
 										</div>
 									</div>
 
@@ -525,9 +528,9 @@ const Home: React.FC = () => {
 										<Wind className="w-5 h-5 mb-1 text-gray-500" />
 										<div className="text-xs text-muted-foreground">Vent</div>
 										<div className="text-xl font-semibold">
-											{meteo.windSpeed ?? "-"}
-											{meteo.windSpeed_unit
-												? ` ${meteo.windSpeed_unit}`
+											{startLocation?.meteo?.windSpeed ?? "-"}
+											{startLocation?.meteo?.windSpeed_unit
+												? ` ${startLocation.meteo.windSpeed_unit}`
 												: " km/h"}
 										</div>
 									</div>
@@ -536,8 +539,10 @@ const Home: React.FC = () => {
 										<CloudRainWind className="w-5 h-5 mb-1 text-blue-500" />
 										<div className="text-xs text-muted-foreground">Pluie</div>
 										<div className="text-xl font-semibold">
-											{meteo.rain ?? "-"}
-											{meteo.rain_unit ? ` ${meteo.rain_unit}` : " mm"}
+											{startLocation?.meteo?.rain ?? "-"}
+											{startLocation?.meteo?.rain_unit
+												? ` ${startLocation.meteo.rain_unit}`
+												: " mm"}
 										</div>
 									</div>
 
@@ -547,9 +552,9 @@ const Home: React.FC = () => {
 											Précipitations
 										</div>
 										<div className="text-xl font-semibold">
-											{meteo.precipitation ?? "-"}
-											{meteo.precipitation_unit
-												? ` ${meteo.precipitation_unit}`
+											{startLocation?.meteo?.precipitation ?? "-"}
+											{startLocation?.meteo?.precipitation_unit
+												? ` ${startLocation.meteo.precipitation_unit}`
 												: " mm"}
 										</div>
 									</div>
@@ -560,9 +565,9 @@ const Home: React.FC = () => {
 											Couverture nuageuse
 										</div>
 										<div className="text-xl font-semibold">
-											{meteo.cloudCover ?? "-"}
-											{meteo.cloudCover_unit
-												? ` ${meteo.cloudCover_unit}`
+											{startLocation?.meteo?.cloudCover ?? "-"}
+											{startLocation?.meteo?.cloudCover_unit
+												? ` ${startLocation.meteo.cloudCover_unit}`
 												: " %"}
 										</div>
 									</div>
@@ -573,9 +578,9 @@ const Home: React.FC = () => {
 											Visibilité
 										</div>
 										<div className="text-xl font-semibold">
-											{meteo.visibility ?? "-"}
-											{meteo.visibility_unit
-												? ` ${meteo.visibility_unit}`
+											{startLocation?.meteo?.visibility ?? "-"}
+											{startLocation?.meteo?.visibility_unit
+												? ` ${startLocation.meteo.visibility_unit}`
 												: " m"}
 										</div>
 									</div>
