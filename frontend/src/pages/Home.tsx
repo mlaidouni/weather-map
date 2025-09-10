@@ -105,12 +105,8 @@ const Home: React.FC = () => {
 	const [isSheetOpen, setIsSheetOpen] = useState(false);
 
 	//  états météo
-	const [meteo, setMeteo] = useState<MeteoData | null>(null);
 	const [meteoLoading, setMeteoLoading] = useState(false);
 	const [meteoError, setMeteoError] = useState<string | null>(null);
-
-	const [startCoord, setStartCoord] = useState<LatLngExpression | null>(null);
-	const [endCoord, setEndCoord] = useState<LatLngExpression | null>(null);
 
 	/// ---- Fonctions ----
 	// Nettoie les points sur la carte ET les données de localisation
@@ -122,45 +118,6 @@ const Home: React.FC = () => {
 		setRouteInfo({});
 		setRouteError(null);
 	};
-
-	const onSelectSuggestion = async (s: Suggestion) => {
-		// Ferme les suggestions
-		setIsSearchBarOpen(false);
-		setQueryStart(s.label);
-		setStartLocation({
-			name: s.label,
-			latitude: s.coordinates[0],
-			longitude: s.coordinates[1],
-		});
-
-		setCenter(s.coordinates as LatLngExpression);
-		setZoom(13);
-
-		// Ouvre la sheet et prépare affichage
-		setIsSheetOpen(true);
-		setMeteo(null);
-		setMeteoError(null);
-		setMeteoLoading(true);
-	};
-
-	/// ---- Effets ----
-	const handleMapClick = (e: any) => {
-		const { lat, lng } = e.latlng;
-
-		// FIXME: Doit ouvrir la barre de recherche d'itinéraire si fermée
-
-		// Si le point de départ n'est pas défini, on le définit
-		if (!startLocation) setStartLocation({ latitude: lat, longitude: lng });
-		// Sinon, si le point d'arrivée n'est pas défini, on le définit
-		else if (!endLocation) setEndLocation({ latitude: lat, longitude: lng });
-		// Si les deux sont définis, on réinitialise le point de départ et on efface le point d'arrivée
-		else clearPoints();
-	};
-
-	// Appel au backend pour calculer l'itinéraire quand les deux pins sont définis
-	useEffect(() => {
-		if (startLocation && endLocation) fetchRoute();
-	}, [startLocation, endLocation]); // FIXME Déclencher uniquement si les coords changent ?
 
 	const fetchRoute = async () => {
 		if (!startLocation || !endLocation) return;
@@ -201,17 +158,55 @@ const Home: React.FC = () => {
 		}
 	};
 
+	const onSelectSuggestion = async (s: Suggestion) => {
+		// Ferme les suggestions
+		setIsSearchBarOpen(false);
+		setQueryStart(s.label);
+		setStartLocation({
+			name: s.label,
+			latitude: s.coordinates[0],
+			longitude: s.coordinates[1],
+		});
+
+		setCenter(s.coordinates as LatLngExpression);
+		setZoom(13);
+
+		// Ouvre la sheet et prépare affichage
+		setIsSheetOpen(true);
+		setMeteoError(null);
+		setMeteoLoading(true);
+	};
+
+	/// ---- Effets ----
+	const handleMapClick = (e: any) => {
+		const { lat, lng } = e.latlng;
+
+		// FIXME: Doit ouvrir la barre de recherche d'itinéraire si fermée
+
+		// Si le point de départ n'est pas défini, on le définit
+		if (!startLocation) setStartLocation({ latitude: lat, longitude: lng });
+		// Sinon, si le point d'arrivée n'est pas défini, on le définit
+		else if (!endLocation) setEndLocation({ latitude: lat, longitude: lng });
+		// Si les deux sont définis, on réinitialise le point de départ et on efface le point d'arrivée
+		else clearPoints();
+	};
+
+	// Appel au backend pour calculer l'itinéraire quand les deux pins sont définis
+	useEffect(() => {
+		if (startLocation && endLocation) fetchRoute();
+	}, [startLocation, endLocation]); // FIXME Déclencher uniquement si les coords changent ?
+
 	// Mis à jour de la météo quand la localisation de départ change
-	const fetchMeteo = async (loc: LocationData) => {
+	const fetchMeteo = async (loc: LocationData, setLoc: React.Dispatch<React.SetStateAction<LocationData | null>>) => {
 		try {
-			setMeteo(null);
+			setLoc((prev) => (prev ? { ...prev, meteo: undefined } : prev));
 			setMeteoError(null);
 			setMeteoLoading(true);
 			const data: MeteoData = await fetchMeteoFromLocation(
 				loc.latitude,
 				loc.longitude
 			);
-			setMeteo(data);
+			setLoc((prev) => (prev ? { ...prev, meteo: data } : prev));
 		} catch (e) {
 			console.error(e);
 			setMeteoError("Impossible de récupérer la météo.");
@@ -221,19 +216,35 @@ const Home: React.FC = () => {
 	};
 
 	useEffect(() => {
-		if (startLocation) fetchMeteo(startLocation);
-	}, [startLocation]);
+		if (startLocation) fetchMeteo(startLocation, setStartLocation);
+		else
+			setStartLocation((prev) => (prev ? { ...prev, meteo: undefined } : prev));
 
-	useEffect(() => {
-		if (endLocation) fetchMeteo(endLocation);
-	}, [endLocation]);
+	}, [startLocation?.latitude, startLocation?.longitude]);
 
 	// ---------- RENDER ----------
 	return (
 		<div className="relative w-full h-full">
+			{/* Bouton toggle la barre de recherche d'itinéraire (à droite de la barre de recherche) */}
+			<Button
+				variant="secondary"
+				size="icon"
+				className="absolute top-4 left-4 z-10"
+				onClick={() =>
+					setIsSearchBarOpen((prev) => !prev)
+					// setIsRouteSearchOpen((prev) => !prev)
+
+				}
+			>
+				<ChevronRightIcon
+					className={`transition-transform duration-300 ${isSearchBarOpen ? "rotate-90" : ""
+						}`}
+				/>
+			</Button>
+
 			{/* Barre de recherche en haut à gauche */}
 			<div
-				className={`absolute top-4 left-16 z-10 transition-all duration-300 ${isRouteSearchOpen ? "w-64 opacity-100" : "w-0 opacity-0"
+				className={`absolute top-4 left-16 z-10 transition-all duration-300 ${isSearchBarOpen ? "w-64 opacity-100" : "w-0 opacity-0"
 					} overflow-hidden`}
 			>
 				<Command>
@@ -258,90 +269,6 @@ const Home: React.FC = () => {
 					</CommandList>
 				</Command>
 			</div>
-
-			{isRouteSearchOpen && (
-				<div className="absolute top-20 left-16 z-20 w-72 bg-white shadow-lg rounded-lg p-4 space-y-3">
-					{/* Recherche départ */}
-					<Command>
-						<CommandInput
-							placeholder="Point de départ..."
-							value={queryStart}
-							onValueChange={setQueryStart}
-						/>
-						<CommandList>
-							<CommandGroup heading="Suggestions">
-								{suggestions.map((s, idx) => (
-									<CommandItem
-										key={idx}
-										value={s.label}
-										onSelect={() => {
-											setStartLocation({
-												name: s.label,
-												latitude: s.coordinates[0],
-												longitude: s.coordinates[1],
-											});
-											setQueryStart(s.label);
-
-											setCenter(s.coordinates as LatLngExpression);
-											setZoom(13);
-										}}
-									>
-										{s.label}
-									</CommandItem>
-								))}
-							</CommandGroup>
-						</CommandList>
-					</Command>
-
-					{/* Recherche arrivée */}
-					<Command>
-						<CommandInput
-							placeholder="Destination..."
-							value={queryEnd}
-							onValueChange={setQueryEnd}
-						/>
-						<CommandList>
-							<CommandGroup heading="Suggestions">
-								{suggestionsEnd.map((s, idx) => (
-									<CommandItem
-										key={idx}
-										value={s.label}
-										onSelect={() => {
-											setEndLocation({
-												name: s.label,
-												latitude: s.coordinates[0],
-												longitude: s.coordinates[1],
-											});
-											setQueryEnd(s.label);
-
-											setCenter(s.coordinates as LatLngExpression);
-											setZoom(13);
-										}}
-									>
-										{s.label}
-									</CommandItem>
-								))}
-							</CommandGroup>
-						</CommandList>
-					</Command>
-
-					{/* Bouton pour fermer la recherche */}
-					<Button onClick={() => setIsRouteSearchOpen(false)}>Fermer</Button>
-				</div>
-			)}
-
-			{/* Bouton toggle la barre de recherche d'itinéraire (à droite de la barre de recherche) */}
-			<Button
-				variant="secondary"
-				size="icon"
-				className="absolute top-4 left-4 z-10"
-				onClick={() => setIsRouteSearchOpen((prev) => !prev)}
-			>
-				<ChevronRightIcon
-					className={`transition-transform duration-300 ${isRouteSearchOpen ? "rotate-90" : ""
-						}`}
-				/>
-			</Button>
 
 			{/* Filtres */}
 			<div className="absolute top-4 right-20 z-10 flex flex-row gap-2">
@@ -406,9 +333,10 @@ const Home: React.FC = () => {
 							className="mt-2 w-fit"
 							disabled={!meteoLoading && !meteoError && !startLocation?.meteo}
 							onClick={() => {
-								setIsRouteSearchOpen(true);
-								setIsSheetOpen(false);
 								console.log("startLocation:", startLocation);
+								console.log("startLocation.meteo:", startLocation?.meteo);
+								// setIsRouteSearchOpen(true);
+								// setIsSheetOpen(false);
 							}}
 						>
 							Itinéraire
