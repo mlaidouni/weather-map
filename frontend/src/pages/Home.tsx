@@ -9,11 +9,20 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { ChevronRightIcon } from "lucide-react";
+import {
+  ChevronRightIcon,
+  Thermometer,
+  Droplets,
+  Wind,
+  CloudRain,
+  Cloud,
+  CloudFog,
+  CloudDrizzle,
+  CloudRainWind,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import MapFilterCard from "@/components/card/MapFilterCard";
 import { useLocationSuggestions } from "../hooks/useLocationSuggestions";
-import { Marker } from "react-leaflet";
 
 // Import Sheet shadcn/ui
 import {
@@ -26,15 +35,24 @@ import { fetchMeteoFromLocation } from "@/api/meteo";
 
 // ---- Types pour la météo ----
 type MeteoData = {
-  humidity?: number;
-  humidity_unit?: string;
   latitude?: number;
   longitude?: number;
   temperature?: number;
   temperature_unit?: string;
+  apparent_temperature?: number;
+  apparent_temperature_unit?: string;
+  humidity?: number;
+  humidity_unit?: string;
   windSpeed?: number;
   windSpeed_unit?: string;
+  rain?: number;
+  rain_unit?: string;
   precipitation?: number;
+  precipitation_unit?: string;
+  cloudCover?: number;
+  cloudCover_unit?: string;
+  visibility?: number;
+  visibility_unit?: string;
 };
 
 const markerIcon = L.icon({
@@ -272,52 +290,131 @@ const Home: React.FC = () => {
               <div className="text-sm text-red-600">{meteoError}</div>
             )}
 
+            {/* Affichage des données météo */}
             {!meteoLoading && !meteoError && meteo && (
               <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-2xl border p-3 shadow-sm">
-                  <div className="text-xs text-muted-foreground">
-                    Température
+                {/* Section 1 : Météo actuelle */}
+                <div className="col-span-2 flex items-center gap-2 my-6">
+                  <div className="h-px flex-1 bg-muted" />
+                  <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Météo actuelle
+                  </span>
+                  <div className="h-px flex-1 bg-muted" />
+                </div>
+
+                <div className="col-span-2 grid grid-cols-2 gap-3">
+                  <div className="rounded-2xl border p-3 shadow-sm flex flex-col items-center text-center">
+                    <Thermometer className="w-5 h-5 mb-1 text-red-500" />
+                    <div className="text-xs text-muted-foreground">
+                      Température
+                    </div>
+                    <div className="text-xl font-semibold">
+                      {meteo.temperature ?? "-"}
+                      {meteo.temperature_unit
+                        ? ` ${meteo.temperature_unit}`
+                        : " °C"}
+                    </div>
                   </div>
-                  <div className="text-xl font-semibold">
-                    {meteo.temperature ?? "-"}
-                    {meteo.temperature_unit
-                      ? ` ${meteo.temperature_unit}`
-                      : " °C"}
+
+                  <div className="rounded-2xl border p-3 shadow-sm flex flex-col items-center text-center">
+                    <Thermometer className="w-5 h-5 mb-1 text-red-500" />
+                    <div className="text-xs text-muted-foreground">
+                      Température ressentie
+                    </div>
+                    <div className="text-xl font-semibold">
+                      {meteo.apparent_temperature ?? "-"}
+                      {meteo.apparent_temperature_unit
+                        ? ` ${meteo.apparent_temperature_unit}`
+                        : " °C"}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border p-3 shadow-sm flex flex-col items-center text-center">
+                    <Droplets className="w-5 h-5 mb-1 text-cyan-500" />
+                    <div className="text-xs text-muted-foreground">
+                      Humidité
+                    </div>
+                    <div className="text-xl font-semibold">
+                      {meteo.humidity ?? "-"}
+                      {meteo.humidity_unit ? ` ${meteo.humidity_unit}` : " %"}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border p-3 shadow-sm flex flex-col items-center text-center">
+                    <Wind className="w-5 h-5 mb-1 text-gray-500" />
+                    <div className="text-xs text-muted-foreground">Vent</div>
+                    <div className="text-xl font-semibold">
+                      {meteo.windSpeed ?? "-"}
+                      {meteo.windSpeed_unit
+                        ? ` ${meteo.windSpeed_unit}`
+                        : " km/h"}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border p-3 shadow-sm flex flex-col items-center text-center">
+                    <CloudRainWind className="w-5 h-5 mb-1 text-blue-500" />
+                    <div className="text-xs text-muted-foreground">Pluie</div>
+                    <div className="text-xl font-semibold">
+                      {meteo.rain ?? "-"}
+                      {meteo.rain_unit ? ` ${meteo.rain_unit}` : " mm"}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border p-3 shadow-sm flex flex-col items-center text-center">
+                    <CloudDrizzle className="w-5 h-5 mb-1 text-blue-500" />
+                    <div className="text-xs text-muted-foreground">
+                      Précipitations
+                    </div>
+                    <div className="text-xl font-semibold">
+                      {meteo.precipitation ?? "-"}
+                      {meteo.precipitation_unit
+                        ? ` ${meteo.precipitation_unit}`
+                        : " mm"}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border p-3 shadow-sm flex flex-col items-center text-center">
+                    <Cloud className="w-5 h-5 mb-1 text-sky-500" />
+                    <div className="text-xs text-muted-foreground">
+                      Couverture nuageuse
+                    </div>
+                    <div className="text-xl font-semibold">
+                      {meteo.cloudCover ?? "-"}
+                      {meteo.cloudCover_unit
+                        ? ` ${meteo.cloudCover_unit}`
+                        : " %"}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border p-3 shadow-sm flex flex-col items-center text-center">
+                    <CloudFog className="w-5 h-5 mb-1 text-sky-500" />
+                    <div className="text-xs text-muted-foreground">
+                      Visibilité
+                    </div>
+                    <div className="text-xl font-semibold">
+                      {meteo.visibility ?? "-"}
+                      {meteo.visibility_unit
+                        ? ` ${meteo.visibility_unit}`
+                        : " m"}
+                    </div>
                   </div>
                 </div>
 
-                <div className="rounded-2xl border p-3 shadow-sm">
-                  <div className="text-xs text-muted-foreground">Humidité</div>
-                  <div className="text-xl font-semibold">
-                    {meteo.humidity ?? "-"}
-                    {meteo.humidity_unit ? ` ${meteo.humidity_unit}` : " %"}
-                  </div>
+                {/* Section 2 : Prévisions prochaines heures */}
+                <div className="col-span-2 flex items-center gap-2 my-6">
+                  <div className="h-px flex-1 bg-muted" />
+                  <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Prévisions prochaines heures
+                  </span>
+                  <div className="h-px flex-1 bg-muted" />
                 </div>
-
-                <div className="rounded-2xl border p-3 shadow-sm">
-                  <div className="text-xs text-muted-foreground">Vent</div>
-                  <div className="text-xl font-semibold">
-                    {meteo.windSpeed ?? "-"}
-                    {meteo.windSpeed_unit
-                      ? ` ${meteo.windSpeed_unit}`
-                      : " km/h"}
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border p-3 shadow-sm">
-                  <div className="text-xs text-muted-foreground">
-                    Précipitations (dernière heure)
-                  </div>
-                  <div className="text-xl font-semibold">
-                    {meteo.precipitation ?? "-"} mm
-                  </div>
-                </div>
+                {/* ...infos prévisionnelles à ajouter ici... */}
               </div>
             )}
 
             {!meteoLoading && !meteoError && !meteo && (
               <div className="text-sm text-muted-foreground">
-                Sélectionne une localisation pour afficher la météo.
+                Sélectionner une localisation pour afficher la météo.
               </div>
             )}
           </div>
