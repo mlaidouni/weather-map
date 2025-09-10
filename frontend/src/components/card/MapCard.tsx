@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -10,8 +10,7 @@ import {
   useMapEvents,
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
-import { LatLngExpression, Icon } from "leaflet";
-import L from "leaflet";
+import L, { LatLngExpression } from "leaflet";
 
 const apikey = import.meta.env.VITE_OPEN_WEATHER_API_KEY;
 
@@ -49,8 +48,9 @@ interface MapProps {
 interface MapSettingsUpdaterProps {
   useOnlineTiles: boolean;
 }
+
+// Fonction qui permet de recentrer la carte dynamiquement
 function RecenterOnPropChange({
-  //Fonction qui permet de recentrer la carte dynamiquement
   center,
   zoom,
 }: {

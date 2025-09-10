@@ -14,7 +14,6 @@ import {
   Thermometer,
   Droplets,
   Wind,
-  CloudRain,
   Cloud,
   CloudFog,
   CloudDrizzle,
@@ -27,8 +26,6 @@ import {
 import { Button } from "@/components/ui/button";
 import MapFilterCard from "@/components/card/MapFilterCard";
 import { useLocationSuggestions } from "../hooks/useLocationSuggestions";
-
-// Import Sheet shadcn/ui
 import {
   Sheet,
   SheetContent,
@@ -36,9 +33,19 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { fetchMeteoFromLocation } from "@/api/meteo";
+import { fetchMeteoFromLocation } from "@/api/weather";
 
-// ---- Types pour la météo ----
+/// ---- Types ----
+// Types pour une localisation
+export type LocationData = {
+  name?: string | null;
+  // Si l'object n'est pas null, alors ces deux champs sont définis
+  latitude: number;
+  longitude: number;
+  meteo?: MeteoData;
+};
+
+// Types pour la météo
 type MeteoData = {
   latitude?: number;
   longitude?: number;
@@ -60,85 +67,87 @@ type MeteoData = {
   visibility_unit?: string;
 };
 
-const markerIcon = L.icon({
-  iconUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png",
-  shadowUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png",
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41],
-});
-
 const Home: React.FC = () => {
+  /// ---- États ----
+  // Map
   const [center, setCenter] = useState<LatLngExpression>([48.86, 2.33]);
   const [zoom, setZoom] = useState(12);
-  const [open, setOpen] = useState(true); // toggle barre de recherche
+  // Filtre de la map
+  const [isTempMapSelected, setIsTempMapSelected] = useState(0);
+  const [isRainMapSelected, setIsRainMapSelected] = useState(0);
+
+  // Recherche et Search bar
+  const [isSearchBarOpen, setIsSearchBarOpen] = useState(true);
   const [query, setQuery] = useState("");
-
-  const [tempselected, setTempSelected] = useState(0);
-  const [rainselected, setRainSelected] = useState(0);
-
-  // état pour la Sheet
-  const [isSheetOpen, setIsSheetOpen] = useState(false);
-
-  // ---- états météo ----
-  const [meteo, setMeteo] = useState<MeteoData | null>(null);
-  const [meteoLoading, setMeteoLoading] = useState(false);
-  const [meteoError, setMeteoError] = useState<string | null>(null);
-
   const suggestions = useLocationSuggestions(query);
-  const [startCoord, setStartCoord] = useState<LatLngExpression | null>(null);
-  const [endCoord, setEndCoord] = useState<LatLngExpression | null>(null);
+
+  // Localisation sélectionnée
+  const [startLocation, setStartLocation] = useState<LocationData | null>(null);
+  const [endLocation, setEndLocation] = useState<LocationData | null>(null);
+
+  // Itinéraire
   const [routePath, setRoutePath] = useState<LatLngExpression[]>([]);
   const [routeInfo, setRouteInfo] = useState<{
     distance?: number;
     duration?: number;
   }>({});
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [routeLoading, setRouteLoading] = useState(false);
+  const [routeError, setRouteError] = useState<string | null>(null);
 
+  // Sheet
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
+
+  //  états météo
+  const [meteo, setMeteo] = useState<MeteoData | null>(null);
+  const [meteoLoading, setMeteoLoading] = useState(false);
+  const [meteoError, setMeteoError] = useState<string | null>(null);
+
+  const [startCoord, setStartCoord] = useState<LatLngExpression | null>(null);
+  const [endCoord, setEndCoord] = useState<LatLngExpression | null>(null);
+
+  /// ---- Fonctions ----
+  // Nettoie les points sur la carte ET les données de localisation
+  const clearPoints = () => {
+    // FIXME: Doit gérer aussi l'affichage des barre, sheet, etc.
+    setStartLocation(null);
+    setEndLocation(null);
+    setRoutePath([]);
+    setRouteInfo({});
+    setRouteError(null);
+  };
+
+  /// ---- Effets ----
   const handleMapClick = (e: any) => {
     const { lat, lng } = e.latlng;
 
-    // Si le point de départ n'est pas défini, on le définit
-    if (!startCoord) {
-      setStartCoord([lat, lng]);
-    }
-    // Sinon, si le point d'arrivée n'est pas défini, on le définit
-    else if (!endCoord) {
-      setEndCoord([lat, lng]);
-    }
-    // Si les deux sont définis, on réinitialise le point de départ et on efface le point d'arrivée
-    else {
-      clearPoints();
-    }
-  };
+    // FIXME: Doit ouvrir la barre de recherche d'itinéraire si fermée
 
-  const clearPoints = () => {
-    setStartCoord(null);
-    setEndCoord(null);
-    setRoutePath([]);
-    setRouteInfo({});
-    setError(null);
+    // Si le point de départ n'est pas défini, on le définit
+    if (!startLocation) setStartLocation({ latitude: lat, longitude: lng });
+    // Sinon, si le point d'arrivée n'est pas défini, on le définit
+    else if (!endLocation) setEndLocation({ latitude: lat, longitude: lng });
+    // Si les deux sont définis, on réinitialise le point de départ et on efface le point d'arrivée
+    else clearPoints();
   };
 
   // Appel au backend pour calculer l'itinéraire quand les deux pins sont définis
   useEffect(() => {
-    if (startCoord && endCoord) {
-      fetchRoute();
-    }
-  }, [startCoord, endCoord]);
+    if (startLocation && endLocation) fetchRoute();
+  }, [startLocation, endLocation]); // FIXME Déclencher uniquement si les coords changent ?
 
   const fetchRoute = async () => {
-    if (!startCoord || !endCoord) return;
+    if (!startLocation || !endLocation) return;
 
-    setLoading(true);
-    setError(null);
+    setRouteLoading(true);
+    setRouteError(null);
 
     try {
       // Conversion des pins en coordonnées lat/lng pour l'API
-      const startLatLng = L.latLng(startCoord);
-      const endLatLng = L.latLng(endCoord);
+      const startLatLng = L.latLng(
+        startLocation.latitude,
+        startLocation.longitude
+      );
+      const endLatLng = L.latLng(endLocation.latitude, endLocation.longitude);
 
       // Construction de l'URL avec les paramètres
       const url = `/api/routing/weather-aware?startLat=${startLatLng.lat}&startLng=${startLatLng.lng}&endLat=${endLatLng.lat}&endLng=${endLatLng.lng}`;
@@ -161,13 +170,13 @@ const Home: React.FC = () => {
           duration: data.duration ? Math.round(data.duration / 60) : undefined, // en minutes
         });
       } else {
-        setError("Format de données invalide");
+        setRouteError("Format de données invalide");
       }
     } catch (err) {
       console.error("Erreur lors de la récupération de l'itinéraire:", err);
-      setError("Impossible de calculer l'itinéraire");
+      setRouteError("Impossible de calculer l'itinéraire");
     } finally {
-      setLoading(false);
+      setRouteLoading(false);
     }
   };
 
@@ -179,11 +188,11 @@ const Home: React.FC = () => {
         variant="secondary"
         size="icon"
         className="size-8 absolute top-4 left-4 z-10"
-        onClick={() => setOpen((prev) => !prev)}
+        onClick={() => setIsSearchBarOpen((prev) => !prev)}
       >
         <ChevronRightIcon
           className={`transition-transform duration-300 ${
-            open ? "rotate-90" : ""
+            isSearchBarOpen ? "rotate-90" : ""
           }`}
         />
       </Button>
@@ -191,7 +200,7 @@ const Home: React.FC = () => {
       {/* Barre de recherche en haut à gauche */}
       <div
         className={`absolute top-4 left-16 z-10 transition-all duration-300 ${
-          open ? "w-64 opacity-100" : "w-0 opacity-0"
+          isSearchBarOpen ? "w-64 opacity-100" : "w-0 opacity-0"
         } overflow-hidden`}
       >
         <Command>
@@ -208,7 +217,7 @@ const Home: React.FC = () => {
                   value={s.label}
                   onSelect={async () => {
                     // Ferme les suggestions
-                    setOpen(false);
+                    setIsSearchBarOpen(false);
 
                     // Centre la carte
                     const coord = s.coordinates as LatLngExpression; // [lat, lon]
@@ -252,13 +261,13 @@ const Home: React.FC = () => {
       {/* Filtres */}
       <div className="absolute top-4 right-20 z-10 flex flex-row gap-2">
         <MapFilterCard
-          setSelected={setTempSelected}
-          selected={tempselected}
+          setSelected={setIsTempMapSelected}
+          selected={isTempMapSelected}
           img={"soleil.png"}
         />
         <MapFilterCard
-          setSelected={setRainSelected}
-          selected={rainselected}
+          setSelected={setIsRainMapSelected}
+          selected={isRainMapSelected}
           img={"pluie.png"}
         />
       </div>
@@ -268,11 +277,19 @@ const Home: React.FC = () => {
         <MapCard
           center={center}
           zoom={zoom}
-          showTempLayer={!!tempselected}
-          showRainLayer={!!rainselected}
+          showTempLayer={!!isTempMapSelected}
+          showRainLayer={!!isRainMapSelected}
           listStops={routePath.length > 0 ? routePath : []}
-          startCoord={startCoord}
-          endCoord={endCoord}
+          startCoord={
+            startLocation?.latitude && startLocation?.longitude
+              ? [startLocation.latitude, startLocation.longitude]
+              : null
+          }
+          endCoord={
+            endLocation?.latitude && endLocation?.longitude
+              ? [endLocation.latitude, endLocation.longitude]
+              : null
+          }
           onMapClick={handleMapClick}
         />
       </div>
