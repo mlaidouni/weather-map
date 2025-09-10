@@ -11,9 +11,8 @@ import java.util.*;
 @Service
 public class RoutingService {
 
-    //private final Dotenv dotenv = Dotenv.load();
-    //private final String routeAPIKey = dotenv.get("OPEN_ROUTE_SERVICE_API_KEY");
-    private final String routeAPIKey = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjAzZTM0ODM2MTI1ODQxNzViYTJlNDAwOWQwMzI2N2UxIiwiaCI6Im11cm11cjY0In0=";
+    private final Dotenv dotenv = Dotenv.load();
+    private final String routeAPIKey = dotenv.get("OPEN_ROUTE_SERVICE_API_KEY");
     
     /**
      * Calculate a route between two points avoiding areas with specified weather conditions
