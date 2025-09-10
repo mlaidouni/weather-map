@@ -37,7 +37,7 @@ public class RoutingController {
             @RequestParam double endLat,
             @RequestParam double endLng
     ) {
-        return avoidZoneService.smallZones(
+        return avoidZoneService.smallZonesWithRain(
                 startLat, startLng, endLat, endLng);
     }
 }

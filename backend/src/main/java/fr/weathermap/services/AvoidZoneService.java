@@ -11,13 +11,17 @@ import org.springframework.stereotype.Service;
 @Service
 public class AvoidZoneService {
 
-    private int ROWS = 10;
-    private int COLS = 10;
+    double SEUIL_RAIN = 0.0; // mm/h
+    private int ROWS = 15;
+    private int COLS = 15;
 
     @Autowired
     private RoutingService routingService;
+    
+    @Autowired
+    private WeatherService weatherService;
 
-    private double MARGE = 50.0; // marge en km
+    private double MARGE = 30.0; // marge en km
 
     @SuppressWarnings("unchecked")
     public Map<String, Object> zone_total(
@@ -122,5 +126,146 @@ public class AvoidZoneService {
         response.put("zones", zones);
 
         return response;
+    }
+
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> smallZonesWithRain(double startLat, double startLng, double endLat, double endLng) {
+
+        // Récupère toutes les petites zones
+        Map<String, Object> smallZonesMap = smallZones(startLat, startLng, endLat, endLng);
+
+        Map<String, Double> boundingBox = (Map<String, Double>) smallZonesMap.get("boundingBox");
+        List<Map<String, Double>> zones = (List<Map<String, Double>>) smallZonesMap.get("zones");
+
+        List<Map<String, Object>> zonesWithWeather = new ArrayList<>();
+
+        // Préparer listes de centres
+        List<Double> latCenters = new ArrayList<>();
+        List<Double> lonCenters = new ArrayList<>();
+        List<Map<String, Double>> zoneBatch = new ArrayList<>();
+
+        for (Map<String, Double> zone : zones) {
+            double cellLatMin = zone.get("latMin");
+            double cellLatMax = zone.get("latMax");
+            double cellLonMin = zone.get("lonMin");
+            double cellLonMax = zone.get("lonMax");
+
+            double centerLat = (cellLatMin + cellLatMax) / 2.0;
+            double centerLon = (cellLonMin + cellLonMax) / 2.0;
+
+            latCenters.add(centerLat);
+            lonCenters.add(centerLon);
+            zoneBatch.add(zone);
+
+            // Dès qu’on a 5 points → appel API
+            if (latCenters.size() == 5) {
+                processBatch(latCenters, lonCenters, zoneBatch, zonesWithWeather);
+                latCenters.clear();
+                lonCenters.clear();
+                zoneBatch.clear();
+            }
+        }
+
+        // Traiter le dernier batch (<5)
+        if (!latCenters.isEmpty()) {
+            processBatch(latCenters, lonCenters, zoneBatch, zonesWithWeather);
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("boundingBox", boundingBox);
+        response.put("zones", zonesWithWeather);
+
+        return response;
+    }
+
+    // Traite un batch de 1 à 5 zones
+    private void processBatch(List<Double> latCenters, List<Double> lonCenters,
+                            List<Map<String, Double>> zoneBatch,
+                            List<Map<String, Object>> zonesWithWeather) {
+
+        List<Map<String, Object>> weatherList = weatherService.getCurrentWeather(latCenters, lonCenters);
+
+        for (int i = 0; i < zoneBatch.size(); i++) {
+            Map<String, Double> zone = zoneBatch.get(i);
+            double centerLat = latCenters.get(i);
+            double centerLon = lonCenters.get(i);
+
+            Map<String, Object> weather = weatherList.get(i);
+
+            boolean isRaining = false;
+            if (weather != null && weather.containsKey("rain")) {
+                Double precipitation = Double.valueOf(weather.get("rain").toString());
+                isRaining = precipitation > SEUIL_RAIN;
+            }
+
+            Map<String, Object> zoneWithWeather = new HashMap<>(zone);
+            zoneWithWeather.put("centerLat", centerLat);
+            zoneWithWeather.put("centerLon", centerLon);
+            zoneWithWeather.put("isRaining", isRaining);
+
+            zonesWithWeather.add(zoneWithWeather);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    public List<List<List<Double>>> rainingPolygons(double startLat, double startLng, double endLat, double endLng) {
+        // Récupérer toutes les petites zones avec pluie
+        Map<String, Object> zonesMap = smallZonesWithRain(startLat, startLng, endLat, endLng);
+        List<Map<String, Object>> zones = (List<Map<String, Object>>) zonesMap.get("zones");
+
+        // Filtrer uniquement celles où il pleut
+        List<Map<String, Object>> rainingZones = zones.stream()
+            .filter(z -> Boolean.TRUE.equals(z.get("isRaining")))
+            .toList();
+
+        List<List<List<Double>>> polygons = new ArrayList<>();
+        List<Map<String, Object>> toProcess = new ArrayList<>(rainingZones);
+
+        while (!toProcess.isEmpty()) {
+            Map<String, Object> current = toProcess.remove(0);
+
+            // bounding box initiale
+            double latMin = (double) current.get("latMin");
+            double latMax = (double) current.get("latMax");
+            double lonMin = (double) current.get("lonMin");
+            double lonMax = (double) current.get("lonMax");
+
+            boolean merged;
+            do {
+                merged = false;
+                for (int i = 0; i < toProcess.size(); i++) {
+                    Map<String, Object> other = toProcess.get(i);
+                    double oLatMin = (double) other.get("latMin");
+                    double oLatMax = (double) other.get("latMax");
+                    double oLonMin = (double) other.get("lonMin");
+                    double oLonMax = (double) other.get("lonMax");
+
+                    // Vérifie si les zones se touchent ou se chevauchent
+                    boolean overlapLat = !(oLatMax < latMin || oLatMin > latMax);
+                    boolean overlapLon = !(oLonMax < lonMin || oLonMin > lonMax);
+
+                    if (overlapLat && overlapLon) {
+                        latMin = Math.min(latMin, oLatMin);
+                        latMax = Math.max(latMax, oLatMax);
+                        lonMin = Math.min(lonMin, oLonMin);
+                        lonMax = Math.max(lonMax, oLonMax);
+                        toProcess.remove(i);
+                        merged = true;
+                        break;
+                    }
+                }
+            } while (merged);
+
+            // Construire le polygone rectangulaire en ordre horaire
+            List<List<Double>> polygon = new ArrayList<>();
+            polygon.add(List.of(lonMin, latMin)); // bas-gauche
+            polygon.add(List.of(lonMin, latMax)); // haut-gauche
+            polygon.add(List.of(lonMax, latMax)); // haut-droit
+            polygon.add(List.of(lonMax, latMin)); // bas-droit
+
+            polygons.add(polygon);
+        }
+
+        return polygons;
     }
 }

@@ -53,19 +53,14 @@ const Home: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [zone, setZone] = useState<LatLngExpression[]>([]);
-  const [boundingBox, setBoundingBox] = useState<{
-    latMin: number;
-    latMax: number;
-    lonMin: number;
-    lonMax: number;
-  } | null>(null);
-
   const [smallZones, setSmallZones] = useState<Array<{
     latMin: number;
     latMax: number;
     lonMin: number;
     lonMax: number;
+    centerLat?: number;
+    centerLon?: number;
+    isRaining?: boolean;
   }>>([]);
 
   const handleMapClick = (e: any) => {
@@ -87,11 +82,11 @@ const Home: React.FC = () => {
 
   const clearPoints = () => {
     setRoutes([]);
+    setError(null);
+    setSmallZones([]);
+
     setStartPin(null);
     setEndPin(null);
-    setError(null);
-    setZone([]);
-    setBoundingBox(null);
   };
 
   // Appel au backend pour calculer l'itinéraire quand les deux pins sont définis
@@ -115,6 +110,7 @@ const Home: React.FC = () => {
       // Mise en place de la zone
       const urlzone = `/api/routing/test-zone?startLat=${startLatLng.lat}&startLng=${startLatLng.lng}&endLat=${endLatLng.lat}&endLng=${endLatLng.lng}`;
       const responsezone = await fetch(urlzone);
+      
       if (!responsezone.ok) {
         console.error("Erreur lors de la récupération de la zone:", responsezone.status);
       } else {
@@ -122,7 +118,6 @@ const Home: React.FC = () => {
         
         // Stockage de la boundingBox globale dans l'état
         if (datazone && datazone.boundingBox) {
-          setBoundingBox(datazone.boundingBox);
           
           // Conversion de la boundingBox en coordonnées pour affichage sur la carte
           const boxCoordinates: LatLngExpression[] = [
@@ -133,16 +128,13 @@ const Home: React.FC = () => {
             [datazone.boundingBox.latMin, datazone.boundingBox.lonMin], // Fermer le polygone
           ];
           
-          setZone(boxCoordinates);
         }
         
-        // Stockage des petites zones
+        // Stockage des petites zones avec informations météo
         if (datazone && datazone.zones && Array.isArray(datazone.zones)) {
           setSmallZones(datazone.zones);
         }
       } 
-
-
 
       // Construction de l'URL avec les paramètres
       const url = `/api/routing/weather-aware?startLat=${startLatLng.lat}&startLng=${startLatLng.lng}&endLat=${endLatLng.lat}&endLng=${endLatLng.lng}`;

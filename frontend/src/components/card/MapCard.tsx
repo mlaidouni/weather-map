@@ -17,6 +17,7 @@ import L from 'leaflet';
 import { RouteData } from "@/types/routes";
 
 const apikey = import.meta.env.VITE_OPEN_WEATHER_API_KEY;
+const DEBUG = import.meta.env.DEBUG === 'true';
 
 
 const startIcon = L.icon({
@@ -50,6 +51,9 @@ interface MapProps {
     latMax: number;
     lonMin: number;
     lonMax: number;
+    centerLat?: number;
+    centerLon?: number;
+    isRaining?: boolean;
   }>;
   startPin?: LatLngExpression | null;
   endPin?: LatLngExpression | null;
@@ -158,7 +162,7 @@ const MapCard: React.FC<MapProps> = ({
 
         {/* Afficher les petites zones */}
         {smallZones.map((smallZone, index) => {
-          
+
           const zoneCoords: LatLngExpression[] = [
             [smallZone.latMin, smallZone.lonMin],
             [smallZone.latMin, smallZone.lonMax],
@@ -167,25 +171,39 @@ const MapCard: React.FC<MapProps> = ({
             [smallZone.latMin, smallZone.lonMin],
           ];
           
+          const isRaining = smallZone.isRaining === true;
+          const zoneColor = isRaining 
+            ? 'rgba(30, 144, 255, 0.7)'  // Bleu pour la pluie
+            : 'rgba(220, 53, 69, 0.7)';  // Rouge pour pas de pluie
+          
+          const zoneFillColor = isRaining 
+            ? 'rgba(30, 144, 255, 0.3)'  // Bleu transparent pour la pluie
+            : 'rgba(220, 53, 69, 0.3)';  // Rouge transparent pour pas de pluie
+          
           return (
             <Polygon
               key={`small-zone-${index}`}
               positions={zoneCoords}
               pathOptions={{
-                color: 'rgba(220, 53, 69, 0.7)',
-                fillColor: 'rgba(220, 53, 69, 0.3)',
+                color: zoneColor,
+                fillColor: zoneFillColor,
                 weight: 1,
-                fillOpacity: 0.2,
+                fillOpacity: 0.3,
                 opacity: 0.7
               }}
             >
               <Popup>
                 Zone {index + 1}<br/>
                 Lat: {smallZone.latMin.toFixed(4)} - {smallZone.latMax.toFixed(4)}<br/>
-                Lon: {smallZone.lonMin.toFixed(4)} - {smallZone.lonMax.toFixed(4)}
+                Lon: {smallZone.lonMin.toFixed(4)} - {smallZone.lonMax.toFixed(4)}<br/>
+                {smallZone.centerLat && smallZone.centerLon && (
+                  <>Centre: {smallZone.centerLat.toFixed(4)}, {smallZone.centerLon.toFixed(4)}<br/></>
+                )}
+                <strong>{isRaining ? '☔ Il pleut' : '☀️ Pas de pluie'}</strong>
               </Popup>
             </Polygon>
-            );
+          );
+          
         })}
         {routes && routes.length > 0 && routes.map((route, index) => (
           <Polyline
