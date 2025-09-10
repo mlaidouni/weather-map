@@ -5,14 +5,12 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
-import java.io.IOException;
+import fr.weathermap.utils.AreaUtils;
+
 import java.util.*;
 
 @Service
 public class RoutingService {
-
-    @Autowired
-    private AvoidZoneService avoidZoneService;
 
     @Autowired
     private RainViewerRadarPolygonService rainViewerRadarPolygonService;
@@ -115,7 +113,7 @@ public class RoutingService {
 
         // Add avoid polygons if "rain" is in avoidWeatherConditions
         if(avoidWeatherConditions != null && avoidWeatherConditions.contains("rain")) {
-            Map<String, Double> expandedArea = avoidZoneService.expandedArea(startLat, startLng, endLat, endLng, 1.0);
+            Map<String, Double> expandedArea = AreaUtils.expandedArea(startLat, startLng, endLat, endLng, 1.0);
             List<List<List<Double>>> polygonsLonLat;
             try {
                 polygonsLonLat = rainViewerRadarPolygonService.fetchRainPolygons(expandedArea.get("latMax"), expandedArea.get("lonMin"), expandedArea.get("latMin"), expandedArea.get("lonMax"));
@@ -124,7 +122,7 @@ public class RoutingService {
                 return response;
             }
             requestBody.put("exclude_polygons", polygonsLonLat);
-            response.put("raining_zones", avoidZoneService.reverseLonLat(polygonsLonLat));
+            response.put("raining_zones", AreaUtils.reverseLonLat(polygonsLonLat));
         }
 
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
