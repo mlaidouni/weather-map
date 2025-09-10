@@ -19,6 +19,10 @@ import {
   CloudFog,
   CloudDrizzle,
   CloudRainWind,
+  ChevronLeftIcon,
+  TriangleAlert,
+  Loader2,
+  CircleX,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import MapFilterCard from "@/components/card/MapFilterCard";
@@ -278,7 +282,7 @@ const Home: React.FC = () => {
         <SheetContent side="left" className="w-[380px] sm:w-[420px]">
           {/* Header : Informations générales */}
           <SheetHeader>
-            <SheetTitle>{query || "Météo"}</SheetTitle>
+            <SheetTitle>{query || "Informations"}</SheetTitle>
             <SheetDescription>
               {/* Coordonnées */}
               {meteo && meteo.latitude && meteo.longitude && (
@@ -293,14 +297,18 @@ const Home: React.FC = () => {
           <div className="mt-4 space-y-3">
             {/* Chargement */}
             {meteoLoading && (
-              <div className="text-sm text-muted-foreground">
-                Chargement de la météo…
+              <div className="text-sm text-muted-foreground p-2">
+                <Loader2 className="inline-block mr-1 mb-1 animate-spin" />
+                Chargement des données météo…
               </div>
             )}
 
             {/* Cas d'erreur */}
             {meteoError && (
-              <div className="text-sm text-red-600">{meteoError}</div>
+              <div className="text-sm text-red-600 p-2">
+                <CircleX className="inline-block mr-1 mb-1 text-red-500" />
+                {meteoError || "Météo erreur"}
+              </div>
             )}
 
             {/* TODO: ÇA POURRAIT NOUS SERVIR */}
@@ -336,7 +344,7 @@ const Home: React.FC = () => {
 
             {/* Affichage des données météo */}
             {!meteoLoading && !meteoError && meteo && (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2">
                 {/* Section 1 : Météo actuelle */}
                 <div className="col-span-2 flex items-center gap-2 my-6">
                   <div className="h-px flex-1 bg-muted" />
@@ -346,7 +354,7 @@ const Home: React.FC = () => {
                   <div className="h-px flex-1 bg-muted" />
                 </div>
 
-                <div className="col-span-2 grid grid-cols-2 gap-3">
+                <div className="col-span-2 grid grid-cols-2 gap-3 pl-2 pr-2">
                   <div className="rounded-2xl border p-3 shadow-sm flex flex-col items-center text-center">
                     <Thermometer className="w-5 h-5 mb-1 text-red-500" />
                     <div className="text-xs text-muted-foreground">
@@ -457,7 +465,8 @@ const Home: React.FC = () => {
             )}
 
             {!meteoLoading && !meteoError && !meteo && (
-              <div className="text-sm text-muted-foreground">
+              <div className="text-sm text-muted-foreground p-2">
+                <TriangleAlert className="inline-block mr-1 mb-1 text-yellow-500" />
                 Sélectionner une localisation pour afficher la météo.
               </div>
             )}
