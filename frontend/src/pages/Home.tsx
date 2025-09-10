@@ -231,24 +231,10 @@ const Home: React.FC = () => {
   // ---------- RENDER ----------
   return (
     <div className="relative w-full h-full">
-      {/* Bouton toggle pour la barre de recherche */}
-      <Button
-        variant="secondary"
-        size="icon"
-        className="size-8 absolute top-4 left-4 z-10"
-        onClick={() => setIsSearchBarOpen((prev) => !prev)}
-      >
-        <ChevronRightIcon
-          className={`transition-transform duration-300 ${
-            isSearchBarOpen ? "rotate-90" : ""
-          }`}
-        />
-      </Button>
-
       {/* Barre de recherche en haut à gauche */}
       <div
         className={`absolute top-4 left-16 z-10 transition-all duration-300 ${
-          isSearchBarOpen ? "w-64 opacity-100" : "w-0 opacity-0"
+          isRouteSearchOpen ? "w-64 opacity-100" : "w-0 opacity-0"
         } overflow-hidden`}
       >
         <Command>
@@ -273,6 +259,91 @@ const Home: React.FC = () => {
           </CommandList>
         </Command>
       </div>
+
+      {isRouteSearchOpen && (
+        <div className="absolute top-20 left-16 z-20 w-72 bg-white shadow-lg rounded-lg p-4 space-y-3">
+          {/* Recherche départ */}
+          <Command>
+            <CommandInput
+              placeholder="Point de départ..."
+              value={queryStart}
+              onValueChange={setQueryStart}
+            />
+            <CommandList>
+              <CommandGroup heading="Suggestions">
+                {suggestions.map((s, idx) => (
+                  <CommandItem
+                    key={idx}
+                    value={s.label}
+                    onSelect={() => {
+                      setStartLocation({
+                        name: s.label,
+                        latitude: s.coordinates[0],
+                        longitude: s.coordinates[1],
+                      });
+                      setQueryStart(s.label);
+
+                      setCenter(s.coordinates as LatLngExpression);
+                      setZoom(13);
+                    }}
+                  >
+                    {s.label}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+
+          {/* Recherche arrivée */}
+          <Command>
+            <CommandInput
+              placeholder="Destination..."
+              value={queryEnd}
+              onValueChange={setQueryEnd}
+            />
+            <CommandList>
+              <CommandGroup heading="Suggestions">
+                {suggestionsEnd.map((s, idx) => (
+                  <CommandItem
+                    key={idx}
+                    value={s.label}
+                    onSelect={() => {
+                      setEndLocation({
+                        name: s.label,
+                        latitude: s.coordinates[0],
+                        longitude: s.coordinates[1],
+                      });
+                      setQueryEnd(s.label);
+
+                      setCenter(s.coordinates as LatLngExpression);
+                      setZoom(13);
+                    }}
+                  >
+                    {s.label}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+
+          {/* Bouton pour fermer la recherche */}
+          <Button onClick={() => setIsRouteSearchOpen(false)}>Fermer</Button>
+        </div>
+      )}
+
+      {/* Bouton toggle la barre de recherche d'itinéraire (à droite de la barre de recherche) */}
+      <Button
+        variant="secondary"
+        size="icon"
+        className="absolute top-4 left-4 z-10"
+        onClick={() => setIsRouteSearchOpen((prev) => !prev)}
+      >
+        <ChevronRightIcon
+          className={`transition-transform duration-300 ${
+            isRouteSearchOpen ? "rotate-90" : ""
+          }`}
+        />
+      </Button>
 
       {/* Filtres */}
       <div className="absolute top-4 right-20 z-10 flex flex-row gap-2">
