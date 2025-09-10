@@ -263,6 +263,49 @@ public class RainViewerRadarPolygonService {
         );
     }
 
+
+    public boolean isRainingAt(double lat, double lon) throws IOException, InterruptedException {
+        // Vérifications basiques
+        if (lat > 90 || lat < -90 || lon < -180 || lon > 180) return false;
+
+        RainViewerCatalog.Catalog cat = catalog.fetch();
+        if (cat.past.isEmpty()) return false;
+        RainViewerCatalog.Frame latest = cat.past.get(cat.past.size() - 1);
+
+        int zoom = 9; // Zoom élevé raisonnable (cohérent avec fetchRainPolygons)
+        // Coordonnées fractionnaires
+        double n = Math.pow(2, zoom);
+
+        double xFloat = (lon + 180.0) / 360.0 * n;
+        int tileX = (int)Math.floor(xFloat);
+        double xFrac = xFloat - tileX;
+
+        double latRad = Math.toRadians(lat);
+        double yFloat = (1 - Math.log(Math.tan(latRad) + 1/Math.cos(latRad)) / Math.PI) / 2 * n;
+        int tileY = (int)Math.floor(yFloat);
+        double yFrac = yFloat - tileY;
+
+        if (tileX < 0 || tileX >= n || tileY < 0 || tileY >= n) return false;
+
+        String url = catalog.buildTileUrl(
+                cat.host, latest, zoom, tileX, tileY,
+                TILE_SIZE, COLOR_SCHEME, SMOOTH, SNOW, EXT
+        );
+        BufferedImage img = downloadTile(url);
+        if (img == null) return false;
+
+        int px = (int)Math.floor(xFrac * TILE_SIZE);
+        int py = (int)Math.floor(yFrac * TILE_SIZE);
+        if (px < 0) px = 0;
+        if (py < 0) py = 0;
+        if (px >= TILE_SIZE) px = TILE_SIZE - 1;
+        if (py >= TILE_SIZE) py = TILE_SIZE - 1;
+
+        int argb = img.getRGB(px, py);
+        int alpha = (argb >>> 24) & 0xFF;
+        return alpha > 0;
+    }
+
     public static void main(String[] args) {
         RainViewerRadarPolygonService service = new RainViewerRadarPolygonService();
         try {

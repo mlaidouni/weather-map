@@ -96,21 +96,19 @@ const Home: React.FC = () => {
     setError(null);
 
     try {
+
       // Conversion des pins en coordonnées lat/lng pour l'API
       const startLatLng = L.latLng(startPin);
       const endLatLng = L.latLng(endPin);
+      const urlRainZones = `/api/weather/rain/zone?startLat=${startLatLng.lat}&startLng=${startLatLng.lng}&endLat=${endLatLng.lat}&endLng=${endLatLng.lng}`;
+      const responseRainZones = await fetch(urlRainZones);
 
-      // Construction de l'URL avec les paramètres
-      const url = `/api/routing/weather-aware?startLat=${startLatLng.lat}&startLng=${startLatLng.lng}&endLat=${endLatLng.lat}&endLng=${endLatLng.lng}&avoidConditions=rain`;
-      const response = await fetch(url);
-
-      if (!response.ok) {
-        throw new Error(`Erreur API: ${response.status}`);
+      if (!responseRainZones.ok) {
+        throw new Error(`Erreur API: ${responseRainZones.status}`);
       }
 
-      const data = await response.json();
-      const apiRoutes = data.routes;
-      const rainingZones = data.raining_zones;
+      const rainingZonesMap = await responseRainZones.json();
+      const rainingZones = rainingZonesMap.polygons;
 
       // raining_zones is ALWAYS: [ [ [lat,lng], [lat,lng], ... ],  ... ]
       if (Array.isArray(rainingZones)) {
@@ -147,6 +145,17 @@ const Home: React.FC = () => {
 
         setAreas(polygons);
       }
+      
+      // Construction de l'URL avec les paramètres
+      const url = `/api/routing/weather-aware?startLat=${startLatLng.lat}&startLng=${startLatLng.lng}&endLat=${endLatLng.lat}&endLng=${endLatLng.lng}&avoidConditions=rain`;
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error(`Erreur API: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const apiRoutes = data.routes;
 
       if (!apiRoutes || apiRoutes.length === 0) {
         setError("Aucun itinéraire trouvé");

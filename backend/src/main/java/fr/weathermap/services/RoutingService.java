@@ -122,7 +122,6 @@ public class RoutingService {
                 return response;
             }
             requestBody.put("exclude_polygons", polygonsLonLat);
-            response.put("raining_zones", AreaUtils.reverseLonLat(polygonsLonLat));
         }
 
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
