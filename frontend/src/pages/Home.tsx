@@ -355,7 +355,7 @@ const Home: React.FC = () => {
 		)
 	}
 
-	function meteoInfos() {
+	function meteoInfosCurrent() {
 		return (
 			<div className="col-span-2 grid grid-cols-2 gap-3 pl-2 pr-2">
 				{meteoInfoCard(
@@ -445,7 +445,7 @@ const Home: React.FC = () => {
 							<div className="h-px flex-1 bg-muted" />
 						</div>
 
-						{meteoInfos()}
+						{meteoInfosCurrent()}
 
 						<div className="col-span-2 flex items-center gap-2 my-4">
 							<div className="h-px flex-1 bg-muted" />
