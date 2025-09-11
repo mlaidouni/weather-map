@@ -7,9 +7,7 @@ variables:
   DEPLOY_HOST: "37.187.49.205"
   DEPLOY_PATH: "/home/ubuntu/weathermap"
 
-# ------------------------------
-# Build Frontend (prod)
-# ------------------------------
+# Build Frontend
 build_front:
   image: node:20-alpine
   stage: build
@@ -19,74 +17,48 @@ build_front:
     - npm run build
   artifacts:
     paths:
-      - frontend/dist/
-      - frontend/Dockerfile.prod  # inclure le Dockerfile.prod dans les artifacts
-    expire_in: 1 hour
-  tags:
-    - weather-ci
+      - frontend/build/
 
-# ------------------------------
 # Build Backend
-# ------------------------------
 build_back:
-  image: maven:3.9.9-amazoncorretto-17-alpine
+  image: maven:3.9.1-eclipse-temurin-20
   stage: build
   script:
     - cd backend
-    - mvn package
+    - mvn clean package -DskipTests
   artifacts:
     paths:
-      - backend/target/
-      - backend/Dockerfile.prod  # inclure le Dockerfile.prod
-    expire_in: 1 hour
-  tags:
-    - weather-ci
+      - backend/target/app.jar
 
-# ------------------------------
-# Deploy sur le VPS
-# ------------------------------
+# Deploy Docker containers
 deploy:
   stage: deploy
-  image: alpine:latest
+  image: docker:24.0.5
   services:
     - docker:dind
-  needs:
-    - job: build_front
-      artifacts: true
-    - job: build_back
-      artifacts: true
   before_script:
     - apk add --no-cache openssh-client
     - mkdir -p ~/.ssh
-    - echo -e "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+    - echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
     - chmod 600 ~/.ssh/id_rsa
     - ssh-keyscan $DEPLOY_HOST >> ~/.ssh/known_hosts
   script:
-    # Crée les dossiers sur le VPS
-    - ssh $DEPLOY_USER@$DEPLOY_HOST "mkdir -p $DEPLOY_PATH/frontend $DEPLOY_PATH/backend"
+    - ssh $DEPLOY_USER@$DEPLOY_HOST "mkdir -p $DEPLOY_PATH"
+    - scp frontend/build/* $DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/frontend/
+    - scp backend/target/app.jar $DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/backend/app.jar
+    - scp nginx/conf.d/* $DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/nginx/conf.d/
+    - ssh $DEPLOY_USER@$DEPLOY_HOST "docker stop weathermap-nginx || true"
+    - ssh $DEPLOY_USER@$DEPLOY_HOST "docker rm weathermap-nginx || true"
+    - ssh $DEPLOY_USER@$DEPLOY_HOST "docker stop weathermap-frontend || true"
+    - ssh $DEPLOY_USER@$DEPLOY_HOST "docker rm weathermap-frontend || true"
+    - ssh $DEPLOY_USER@$DEPLOY_HOST "docker stop weathermap-backend || true"
+    - ssh $DEPLOY_USER@$DEPLOY_HOST "docker rm weathermap-backend || true"
+    # Backend
+    - ssh $DEPLOY_USER@$DEPLOY_HOST " docker run -d --name weathermap-backend-prod -p 8080:8080 -v $DEPLOY_PATH/backend/app.jar:/app/app.jar openjdk:20 java -jar /app/app.jar"
 
-    # Copie les builds et Dockerfile.prod sur le VPS
-    - scp -r frontend/* $DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/frontend/
-    - scp -r backend/* $DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/backend/
-
-    # Crée le réseau Docker si pas existant
-    - ssh $DEPLOY_USER@$DEPLOY_HOST "docker network inspect weathermap-network || docker network create weathermap-network"
-
-    # Build et run Backend
-    - ssh $DEPLOY_USER@$DEPLOY_HOST "docker build -t weathermap-backend-prod -f $DEPLOY_PATH/backend/Dockerfile.prod $DEPLOY_PATH/backend"
-    - ssh $DEPLOY_USER@$DEPLOY_HOST "docker stop weathermap-backend || true && docker rm weathermap-backend || true"
-    - ssh $DEPLOY_USER@$DEPLOY_HOST "docker run -d --name weathermap-backend --network weathermap-network weathermap-backend-prod"
-
-    # Build et run Frontend
-    - ssh $DEPLOY_USER@$DEPLOY_HOST "docker build -t weathermap-frontend-prod -f $DEPLOY_PATH/frontend/Dockerfile.prod $DEPLOY_PATH/frontend"
-    - ssh $DEPLOY_USER@$DEPLOY_HOST "docker stop weathermap-frontend || true && docker rm weathermap-frontend || true"
-    - ssh $DEPLOY_USER@$DEPLOY_HOST "docker run -d --name weathermap-frontend --network weathermap-network weathermap-frontend-prod"
-
-    # Run Nginx
-    - ssh $DEPLOY_USER@$DEPLOY_HOST "docker stop weathermap-nginx || true && docker rm weathermap-nginx || true"
-    - ssh $DEPLOY_USER@$DEPLOY_HOST "docker run -d --name weathermap-nginx --network weathermap-network -p 80:80 -v $DEPLOY_PATH/nginx/conf.d:/etc/nginx/conf.d nginx:alpine"
-
-  tags:
-    - weather-ci
+    # Frontend and Nginx
+    - ssh $DEPLOY_USER@$DEPLOY_HOST " docker run -d --name weathermap-frontend-prod -p 3000:80 -v $DEPLOY_PATH/frontend:/usr/share/nginx/html nginx:alpine"
+    - ssh $DEPLOY_USER@$DEPLOY_HOST " docker run -d --name weathermap-nginx -p 80:80 -v $DEPLOY_PATH/nginx/conf.d:/etc/nginx/conf.d:ro nginx:alpine"
+       
   only:
     - deploy/setup-deploy
