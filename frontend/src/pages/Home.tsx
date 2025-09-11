@@ -68,6 +68,7 @@ const Home: React.FC = () => {
 	const [routeLoading, setRouteLoading] = useState(false);
 	const [routeError, setRouteError] = useState<string | null>(null);
 	const [areas, setAreas] = useState<Area[]>([]);
+  const [routeSearch, setRouteSearch] = useState(false)
 
 	// Sheet
 	const [isSideBarOpen, setIsSideBarOpen] = useState(false);
@@ -275,14 +276,14 @@ const Home: React.FC = () => {
 	};
 
 	// Calculer l'itinéraire quand les deux pins sont définis
-	useEffect(() => {
-		if (startLocation && endLocation) fetchRoute();
-	}, [
-		startLocation?.latitude,
-		startLocation?.longitude,
-		endLocation?.latitude,
-		endLocation?.longitude,
-	]);
+	// useEffect(() => {
+	// 	if (startLocation && endLocation) fetchRoute();
+	// }, [
+	// 	startLocation?.latitude,
+	// 	startLocation?.longitude,
+	// 	endLocation?.latitude,
+	// 	endLocation?.longitude,
+	// ]);
 
 	// Mise à jour de la météo quand la localisation de départ change
 	useEffect(() => {
@@ -642,17 +643,23 @@ const Home: React.FC = () => {
 				)}
 
 				{isRouteSearchBarOpen && (
-					<div className="flex items-center gap-2 p-2">
-						<Checkbox
-							disabled={!startLocation || !endLocation}
-							onCheckedChange={(checked) => {
-								setRouteFilteredByRain(!checked);
-								// TODO: Rafraîchir l'itinéraire avec le filtre
-							}}
-						/>
-						<Label>Éviter la pluie</Label>
-					</div>
+					<><div className="flex items-center gap-2 p-2">
+            <Checkbox
+              disabled={!startLocation || !endLocation}
+              onCheckedChange={(checked) => {
+                setRouteFilteredByRain(!checked);
+                // TODO: Rafraîchir l'itinéraire avec le filtre
+              } } />
+            <Label>Éviter la pluie</Label>
+          </div><Button
+            disabled={!startLocation || !endLocation || routeLoading}
+            onClick={fetchRoute}
+            className="w-full"
+          >
+              {routeLoading ? "Calcul en cours..." : "Rechercher l’itinéraire"}
+            </Button></>
 				)}
+        
 			</div>
 		);
 	}
