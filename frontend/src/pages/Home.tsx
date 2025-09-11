@@ -392,7 +392,7 @@ const Home: React.FC = () => {
 
 			{/* Slider au centre en haut */}
 			<Slider
-				className="absolute top-100 w-[60%]"
+				className="absolute bottom-5 left-1/2 -translate-x-1/2 w-[30%] z-10"
 				defaultValue={[33]} max={100} step={1} />
 
 			{/* Filtres */}
