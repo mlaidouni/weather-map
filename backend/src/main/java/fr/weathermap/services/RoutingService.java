@@ -17,6 +17,59 @@ public class RoutingService {
 
     private final String valhallaAPI = "http://37.187.49.205:8002/route";
 
+    public Map<String, Object> calculateWeatherAwareRouteStatic(
+            double startLat, double startLng,
+            double endLat, double endLng,
+            List<String> avoidWeatherConditions) {
+
+        Map<String, Object> result = new HashMap<>();
+        boolean useRain = (avoidWeatherConditions != null && avoidWeatherConditions.contains("rain"));
+
+        List<RainViewerRadarPolygonService.RainPolygonsResult> frames = List.of();
+        List<List<List<Double>>> polygons = List.of();
+
+        if (useRain) {
+            try {
+                // Petite zone élargie (1 km)
+                Map<String, Double> expanded = AreaUtils.expandedArea(startLat, startLng, endLat, endLng, 1.0);
+                frames = rainViewerRadarPolygonService.fetchAllRainPolygons(
+                        expanded.get("latMax"), expanded.get("lonMin"),
+                        expanded.get("latMin"), expanded.get("lonMax"));
+                if (!frames.isEmpty()) {
+                    // On prend uniquement la première frame (simulation "état actuel")
+                    polygons = frames.get(0).getSimplifiedPolygons();
+                } else {
+                    useRain = false;
+                }
+            } catch (Exception e) {
+                useRain = false;
+            }
+        }
+
+        Map<String, Object> segment = buildRouteSegment(startLat, startLng, endLat, endLng, useRain ? polygons : null);
+        if (segment == null) {
+            result.put("error", "Routing failed");
+            result.put("duration", 0);
+            result.put("distance", 0);
+            result.put("steps", List.of());
+            return result;
+        }
+
+        double duration = toDouble(segment.get("segment_duration"));
+        double distance = toDouble(segment.get("segment_distance"));
+
+        Map<String, Object> step = new HashMap<>();
+        // Conserver la cohérence avec la version dynamique (conversion éventuelle
+        // lon/lat selon utilitaires)
+        step.put("rain_polygons", useRain ? AreaUtils.reverseLonLat(polygons) : List.of());
+        step.put("route", AreaUtils.reverseLonLat2((List<List<Double>>) segment.get("segment_route")));
+
+        result.put("duration", duration);
+        result.put("distance", distance);
+        result.put("steps", List.of(step));
+        return result;
+    }
+
     /**
      * Nouveau format:
      * {
@@ -31,7 +84,7 @@ public class RoutingService {
      * ]
      * }
      */
-    public Map<String, Object> calculateWeatherAwareRoute(
+    public Map<String, Object> calculateWeatherAwareRouteDynamic(
             double startLat, double startLng,
             double endLat, double endLng,
             List<String> avoidWeatherConditions) {

@@ -20,10 +20,11 @@ public class RoutingController {
 			@RequestParam double startLng,
 			@RequestParam double endLat,
 			@RequestParam double endLng,
-			@RequestParam(required = false, defaultValue = "") List<String> avoidConditions) {
+			@RequestParam(required = false, defaultValue = "") List<String> avoidConditions,
+			@RequestParam(required = false, defaultValue = "false") boolean dynamic){
 
-		Map<String, Object> result = routingService.calculateWeatherAwareRoute(
-				startLat, startLng, endLat, endLng, avoidConditions);
+		Map<String, Object> result = dynamic ? routingService.calculateWeatherAwareRouteDynamic(startLat, startLng, endLat, endLng, avoidConditions)
+				: routingService.calculateWeatherAwareRouteStatic(startLat, startLng, endLat, endLng, avoidConditions);
 
 		if(result.containsKey("error")) {
 			System.out.println("Error: " + result.get("error"));
