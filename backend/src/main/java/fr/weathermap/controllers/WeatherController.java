@@ -27,8 +27,8 @@ public class WeatherController {
 
 	@GetMapping("/current")
 	public Map<String, Object> getCurrentWeather(
-			@RequestParam(defaultValue = "48.86") double lat,
-			@RequestParam(defaultValue = "2.33") double lng) {
+			@RequestParam double lat,
+			@RequestParam double lng) {
 
 		String url = "https://api.open-meteo.com/v1/forecast"
 				+ "?latitude=" + lat
