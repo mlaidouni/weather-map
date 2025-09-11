@@ -37,6 +37,7 @@ import { Slider } from "@/components/ui/slider";
 import { SidebarInset, SidebarTrigger, SidebarProvider } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { AppSidebar } from "@/components/app-sidebar";
+import { start } from "repl";
 
 const Home: React.FC = () => {
 	/// ---- États ----
@@ -317,45 +318,23 @@ const Home: React.FC = () => {
 
 	/// ---- Rendu ----
 
-	function sideBarHeader() {
+	function sideBarHeader(location: LocationData | null) {
 		return (
 			<div className="mb-2">
 				<div className="text-2xl font-semibold">
-					{startLocation?.name ||
-						(startLocation?.latitude
-							? `${startLocation.latitude.toFixed(10)}, 
-				  ${startLocation.longitude.toFixed(10)}`
-							: "Informations")}
+					{location?.name ||
+						(location?.latitude
+							? `${location.latitude.toFixed(10)}, 
+				  ${location.longitude.toFixed(10)}`
+							: "Aucune information disponible.")}
 				</div>
 				{/* Coordonnées */}
-				{startLocation && (
+				{location && (
 					<div className="text-sm text-muted-foreground">
-						Coordonnées: {startLocation.latitude.toFixed(4)},{" "}
-						{startLocation.longitude.toFixed(4)}
+						Coordonnées: {location.latitude.toFixed(4)},{" "}
+						{location.longitude.toFixed(4)}
 					</div>
 				)}
-				{/* <Button
-          variant="default"
-          size="sm"
-          className="mt-2 w-fit"
-          disabled={!meteoLoading && !meteoError && !startLocation?.meteo}
-          onClick={() => {
-            console.log("Button Itineraire - startlocation", startLocation);
-            setIsRouteSearchBarOpen(true);
-            setQueryStart(
-              startLocation?.name
-                ? startLocation.name
-                : startLocation
-                ? `${startLocation.latitude.toFixed(
-                    10
-                  )}, ${startLocation.longitude.toFixed(10)}`
-                : ""
-            );
-            setShowSuggestionStart(false);
-          }}
-        >
-          Itinéraire
-        </Button> */}
 			</div>
 		);
 	}
@@ -363,7 +342,6 @@ const Home: React.FC = () => {
 	function meteoInfoCard(title: string, icon: React.ReactNode, data: number | undefined, unit: string | undefined) {
 		return (
 			<div className="rounded-2xl border p-3 shadow-sm flex flex-col items-center text-center">
-				{/* <Thermometer className="w-5 h-5 mb-1 text-red-500" /> */}
 				{icon}
 				<div className="text-xs text-muted-foreground">
 					{title}
@@ -376,13 +354,15 @@ const Home: React.FC = () => {
 		)
 	}
 
-	function meteoComponentFor(location: LocationData | null, label: string) {
+	function meteoComponentFor(location: LocationData | null) {
 		return (
 			<div className="mt-6 space-y-3">
+				{/* Meteo Info Header */}
+
 				<div className="col-span-2 flex items-center gap-2 my-4">
 					<div className="h-px flex-1 bg-muted" />
 					<span className="text-xs uppercase tracking-wide text-muted-foreground">
-						{label}
+						Météo actuelle
 					</span>
 					<div className="h-px flex-1 bg-muted" />
 				</div>
@@ -481,7 +461,9 @@ const Home: React.FC = () => {
 				onOpenChange={setIsSideBarOpen}
 			>
 				<AppSidebar
-					header={sideBarHeader()}
+					header={sideBarHeader(
+						selectedMeteoView == "start" && startLocation ? startLocation : endLocation
+					)}
 					content={
 						<>
 							{startLocation && endLocation ? (
@@ -510,13 +492,13 @@ const Home: React.FC = () => {
 
 									{/* Affichage conditionnel */}
 									{selectedMeteoView === "start" &&
-										meteoComponentFor(startLocation, "Météo au départ")}
+										meteoComponentFor(startLocation)}
 									{selectedMeteoView === "end" &&
-										meteoComponentFor(endLocation, "Météo à l’arrivée")}
+										meteoComponentFor(endLocation)}
 								</>
 							) : (
 								// Sinon, seulement la météo du départ
-								meteoComponentFor(startLocation, "Météo actuelle")
+								meteoComponentFor(startLocation)
 							)}
 						</>
 					}
