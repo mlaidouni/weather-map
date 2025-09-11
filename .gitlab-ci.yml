@@ -25,7 +25,7 @@ build_back:
   stage: build
   script:
     - cd backend
-    - mvn clean package -DskipTests
+    - mvn clean package
   artifacts:
     paths:
       - backend/target/app.jar
