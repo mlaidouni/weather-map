@@ -18,7 +18,6 @@ import {
 	CloudFog,
 	CloudDrizzle,
 	CloudRainWind,
-	ChevronLeftIcon,
 	TriangleAlert,
 	Loader2,
 	CircleX,
@@ -26,13 +25,6 @@ import {
 import { Button } from "@/components/ui/button";
 import MapFilterCard from "@/components/card/MapFilterCard";
 import { useLocationSuggestions } from "../hooks/useLocationSuggestions";
-import {
-	Sheet,
-	SheetContent,
-	SheetDescription,
-	SheetHeader,
-	SheetTitle,
-} from "@/components/ui/sheet";
 import { fetchMeteoFromLocation, fetchRainZones } from "@/api/weather";
 import { fetchRoutingWeatherAware } from "@/api/routing";
 import { LocationData } from "@/types/locationData";
@@ -42,6 +34,9 @@ import { RouteData } from "@/types/routes";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
+import { SidebarInset, SidebarTrigger, SidebarProvider } from "@/components/ui/sidebar";
+import { Separator } from "@/components/ui/separator";
+import { AppSidebar } from "@/components/app-sidebar";
 
 const Home: React.FC = () => {
 	/// ---- États ----
@@ -75,11 +70,14 @@ const Home: React.FC = () => {
 	const [areas, setAreas] = useState<Area[]>([]);
 
 	// Sheet
-	const [isSheetOpen, setIsSheetOpen] = useState(false);
+	const [isSideBarOpen, setIsSideBarOpen] = useState(false);
 
 	// Météo
 	const [meteoLoading, setMeteoLoading] = useState(false);
 	const [meteoError, setMeteoError] = useState<string | null>(null);
+	const [selectedMeteoView, setSelectedMeteoView] = useState<"start" | "end">(
+		"start"
+	);
 
 	/// ---- Fonctions ----
 	// Nettoie les points sur la carte ET les données de localisation
@@ -122,7 +120,8 @@ const Home: React.FC = () => {
 								if (Array.isArray(pt) && pt.length >= 2) {
 									const lat = Number(pt[0]);
 									const lng = Number(pt[1]);
-									if (!isNaN(lat) && !isNaN(lng)) return [lat, lng] as LatLngExpression;
+									if (!isNaN(lat) && !isNaN(lng))
+										return [lat, lng] as LatLngExpression;
 								}
 								return null;
 							})
@@ -139,7 +138,7 @@ const Home: React.FC = () => {
 
 						return {
 							coordinates: coords,
-							isRaining: true
+							isRaining: true,
 						} as Area;
 					})
 					.filter(Boolean) as Area[];
@@ -175,47 +174,48 @@ const Home: React.FC = () => {
 
 					// Calculate distance in km (rounded to 1 decimal)
 					const distance = route.distance
-						? Math.round(route.distance / 1000 * 10) / 10
+						? Math.round((route.distance / 1000) * 10) / 10
 						: 0;
 
 					// Calculate duration in minutes
-					const duration = route.duration
-						? Math.round(route.duration / 60)
-						: 0;
+					const duration = route.duration ? Math.round(route.duration / 60) : 0;
 
 					return {
 						id: `route-${index}`,
 						coordinates,
 						distance,
-						duration
+						duration,
 					};
 				});
 
 				setRoutes(processedRoutes);
-			}
-			else {
+			} else {
 				setRouteError("Format de données invalide");
 			}
-		}
-		catch (err) {
+		} catch (err) {
 			console.error("Erreur lors de la récupération de l'itinéraire:", err);
 			setRouteError("Impossible de calculer l'itinéraire");
-		}
-		finally {
+		} finally {
 			setRouteLoading(false);
 		}
 	};
 
 	// Mis à jour de la météo quand la localisation change
-	const fetchMeteo = async (loc: LocationData, setLoc: React.Dispatch<React.SetStateAction<LocationData | null>>) => {
+
+	const fetchMeteo = async (
+		loc: LocationData,
+		setLoc: React.Dispatch<React.SetStateAction<LocationData | null>>
+	) => {
 		try {
 			setLoc((prev) => (prev ? { ...prev, meteo: undefined } : prev));
 			setMeteoError(null);
 			setMeteoLoading(true);
+
 			const data: MeteoData = await fetchMeteoFromLocation(
 				loc.latitude,
 				loc.longitude
 			);
+
 			setLoc((prev) => (prev ? { ...prev, meteo: data } : prev));
 		} catch (e) {
 			console.error(e);
@@ -228,37 +228,36 @@ const Home: React.FC = () => {
 	const onSelectSuggestionStart = async (s: Suggestion) => {
 		setQueryStart(s.label);
 		setShowSuggestionStart(false);
-		setStartLocation({
+
+		const newLoc: LocationData = {
 			name: s.label,
 			latitude: s.coordinates[0],
 			longitude: s.coordinates[1],
-		});
+		};
 
+		setStartLocation(newLoc);
 		setCenter(s.coordinates as LatLngExpression);
 		setZoom(13);
 
-		// Ouvre la sheet et prépare affichage
-		setIsSheetOpen(true);
-		setMeteoError(null);
-		setMeteoLoading(true);
+		await fetchMeteo(newLoc, setStartLocation);
 	};
 
 	const onSelectSuggestionEnd = async (s: Suggestion) => {
 		setQueryEnd(s.label);
 		setShowSuggestionEnd(false);
-		setEndLocation({
+
+		const newLoc: LocationData = {
 			name: s.label,
 			latitude: s.coordinates[0],
 			longitude: s.coordinates[1],
-		});
+		};
 
+		setEndLocation(newLoc);
 		setCenter(s.coordinates as LatLngExpression);
 		setZoom(13);
+		setIsSideBarOpen(true);
 
-		// Ouvre la sheet et prépare affichage
-		setIsSheetOpen(true);
-		setMeteoError(null);
-		setMeteoLoading(true);
+		await fetchMeteo(newLoc, setEndLocation);
 	};
 
 	/// ---- Effets ----
@@ -278,52 +277,312 @@ const Home: React.FC = () => {
 	// Calculer l'itinéraire quand les deux pins sont définis
 	useEffect(() => {
 		if (startLocation && endLocation) fetchRoute();
-	}, [startLocation?.latitude, startLocation?.longitude, endLocation?.latitude, endLocation?.longitude]);
+	}, [
+		startLocation?.latitude,
+		startLocation?.longitude,
+		endLocation?.latitude,
+		endLocation?.longitude,
+	]);
 
 	// Mise à jour de la météo quand la localisation de départ change
 	useEffect(() => {
 		if (startLocation) fetchMeteo(startLocation, setStartLocation);
 		else
 			setStartLocation((prev) => (prev ? { ...prev, meteo: undefined } : prev));
-
 	}, [startLocation?.latitude, startLocation?.longitude]);
 
 	// Mise à jour de la météo quand la localisation d'arrivée change
 	useEffect(() => {
 		if (endLocation) fetchMeteo(endLocation, setEndLocation);
-		else setEndLocation((prev) => (prev ? { ...prev, meteo: undefined } : prev));
+		else
+			setEndLocation((prev) => (prev ? { ...prev, meteo: undefined } : prev));
 	}, [endLocation?.latitude, endLocation?.longitude]);
 
 	// Affiche les suggestions quand la query change
-	useEffect(() => { setShowSuggestionStart(true); }, [queryStart]);
-	useEffect(() => { setShowSuggestionEnd(true); }, [queryEnd]);
+	useEffect(() => {
+		setShowSuggestionStart(true);
+	}, [queryStart]);
+	useEffect(() => {
+		setShowSuggestionEnd(true);
+	}, [queryEnd]);
 
 	// Masque les suggestions quand la localisation est sélectionnée
-	useEffect(() => { if (startLocation?.name) setShowSuggestionStart(false); }, [startLocation?.name]);
-	useEffect(() => { if (endLocation?.name) setShowSuggestionEnd(false); }, [endLocation?.name]);
+	useEffect(() => {
+		if (startLocation?.name) setShowSuggestionStart(false);
+	}, [startLocation?.name]);
+	useEffect(() => {
+		if (endLocation?.name) setShowSuggestionEnd(false);
+	}, [endLocation?.name]);
 
+	/// ---- Rendu ----
 
-	// ---------- RENDER ----------
-	return (
-		<div className="relative w-full h-full">
-			{/* Bouton toggle la barre de recherche d'itinéraire */}
+	function sideBarHeader() {
+		return (
+			<div className="mb-2">
+				<div className="text-2xl font-semibold">
+					{startLocation?.name ||
+						(startLocation?.latitude
+							? `${startLocation.latitude.toFixed(10)}, 
+				  ${startLocation.longitude.toFixed(10)}`
+							: "Informations")}
+				</div>
+				{/* Coordonnées */}
+				{startLocation && (
+					<div className="text-sm text-muted-foreground">
+						Coordonnées: {startLocation.latitude.toFixed(4)},{" "}
+						{startLocation.longitude.toFixed(4)}
+					</div>
+				)}
+				{/* <Button
+          variant="default"
+          size="sm"
+          className="mt-2 w-fit"
+          disabled={!meteoLoading && !meteoError && !startLocation?.meteo}
+          onClick={() => {
+            console.log("Button Itineraire - startlocation", startLocation);
+            setIsRouteSearchBarOpen(true);
+            setQueryStart(
+              startLocation?.name
+                ? startLocation.name
+                : startLocation
+                ? `${startLocation.latitude.toFixed(
+                    10
+                  )}, ${startLocation.longitude.toFixed(10)}`
+                : ""
+            );
+            setShowSuggestionStart(false);
+          }}
+        >
+          Itinéraire
+        </Button> */}
+			</div>
+		);
+	}
+
+	function meteoInfoCard(title: string, icon: React.ReactNode, data: number | undefined, unit: string | undefined) {
+		return (
+			<div className="rounded-2xl border p-3 shadow-sm flex flex-col items-center text-center">
+				{/* <Thermometer className="w-5 h-5 mb-1 text-red-500" /> */}
+				{icon}
+				<div className="text-xs text-muted-foreground">
+					{title}
+				</div>
+				<div className="text-xl font-semibold">
+					{data ?? "-"}
+					{unit ? ` ${unit}` : " ??"}
+				</div>
+			</div>
+		)
+	}
+
+	function meteoComponentFor(location: LocationData | null, label: string) {
+		return (
+			<div className="mt-6 space-y-3">
+				<div className="col-span-2 flex items-center gap-2 my-4">
+					<div className="h-px flex-1 bg-muted" />
+					<span className="text-xs uppercase tracking-wide text-muted-foreground">
+						{label}
+					</span>
+					<div className="h-px flex-1 bg-muted" />
+				</div>
+
+				{meteoError && (
+					<div className="text-sm text-red-600 p-2 rounded-md border border-red-200 bg-red-50">
+						<CircleX className="inline-block mr-1 mb-1 text-red-500" />
+						{meteoError || "Erreur lors de la récupération des données météo."}
+					</div>
+				)}
+
+				{meteoLoading && (
+					<div className="text-sm text-muted-foreground p-2 flex items-center gap-2">
+						<Loader2 className="w-4 h-4 animate-spin" />
+						Chargement des données météo…
+					</div>
+				)}
+
+				{!meteoLoading && !meteoError && !location && (
+					<div className="text-sm text-muted-foreground p-2 flex items-center gap-2">
+						<TriangleAlert className="w-4 h-4 text-yellow-500" />
+						Sélectionner une localisation pour afficher la météo.
+					</div>
+				)}
+
+				{!meteoLoading && !meteoError && location?.meteo && (
+					<div className="grid grid-cols-2 gap-4">
+						{meteoInfosCurrentFor(location)}
+					</div>
+				)}
+			</div>
+		);
+	}
+
+	// version adaptée de meteoInfosCurrent mais avec un paramètre location
+	function meteoInfosCurrentFor(location: LocationData) {
+		return (
+			<>
+				{meteoInfoCard(
+					"Température",
+					<Thermometer className="w-5 h-5 mb-1 text-red-500" />,
+					location.meteo?.temperature,
+					location.meteo?.temperature_unit || "°C"
+				)}
+				{meteoInfoCard(
+					"Température ressentie",
+					<Thermometer className="w-5 h-5 mb-1 text-red-500" />,
+					location.meteo?.apparent_temperature,
+					location.meteo?.apparent_temperature_unit || "°C"
+				)}
+				{meteoInfoCard(
+					"Humidité",
+					<Droplets className="w-5 h-5 mb-1 text-cyan-500" />,
+					location.meteo?.humidity,
+					location.meteo?.humidity_unit || "%"
+				)}
+				{meteoInfoCard(
+					"Vent",
+					<Wind className="w-5 h-5 mb-1 text-gray-500" />,
+					location.meteo?.windSpeed,
+					location.meteo?.windSpeed_unit || "km/h"
+				)}
+				{meteoInfoCard(
+					"Pluie",
+					<CloudRainWind className="w-5 h-5 mb-1 text-blue-500" />,
+					location.meteo?.rain,
+					location.meteo?.rain_unit || "mm"
+				)}
+				{meteoInfoCard(
+					"Précipitations",
+					<CloudDrizzle className="w-5 h-5 mb-1 text-blue-500" />,
+					location.meteo?.precipitation,
+					location.meteo?.precipitation_unit || "mm"
+				)}
+				{meteoInfoCard(
+					"Couverture nuageuse",
+					<Cloud className="w-5 h-5 mb-1 text-sky-500" />,
+					location.meteo?.cloudCover,
+					location.meteo?.cloudCover_unit || "%"
+				)}
+				{meteoInfoCard(
+					"Visibilité",
+					<CloudFog className="w-5 h-5 mb-1 text-sky-500" />,
+					location.meteo?.visibility,
+					location.meteo?.visibility_unit || "m"
+				)}
+			</>
+		);
+	}
+
+	function sideBar() {
+		return (
+			<SidebarProvider
+				defaultOpen={false}
+				open={isSideBarOpen}
+				onOpenChange={setIsSideBarOpen}
+			>
+				<AppSidebar
+					header={sideBarHeader()}
+					content={
+						<>
+							{startLocation && endLocation ? (
+								<>
+									{/* Toggle de sélection */}
+									<div className="flex justify-center gap-2 my-3">
+										<Button
+											variant={
+												selectedMeteoView === "start" ? "default" : "outline"
+											}
+											size="sm"
+											onClick={() => setSelectedMeteoView("start")}
+										>
+											Départ
+										</Button>
+										<Button
+											variant={
+												selectedMeteoView === "end" ? "default" : "outline"
+											}
+											size="sm"
+											onClick={() => setSelectedMeteoView("end")}
+										>
+											Arrivée
+										</Button>
+									</div>
+
+									{/* Affichage conditionnel */}
+									{selectedMeteoView === "start" &&
+										meteoComponentFor(startLocation, "Météo au départ")}
+									{selectedMeteoView === "end" &&
+										meteoComponentFor(endLocation, "Météo à l’arrivée")}
+								</>
+							) : (
+								// Sinon, seulement la météo du départ
+								meteoComponentFor(startLocation, "Météo actuelle")
+							)}
+						</>
+					}
+				/>
+				<SidebarInset>
+					<div className="flex flex-col h-full">
+						<header className="flex h-16 items-center gap-2 border-b px-4">
+							<SidebarTrigger />
+							<Separator
+								orientation="vertical"
+								className="mr-2 data-[orientation=vertical]:h-4"
+							/>
+							Weather Map
+						</header>
+						{/* Layout principal en position relative pour le positionnement absolu des éléments */}
+						<div className="flex-1 relative overflow-hidden">
+							{/* Carte en arrière-plan */}
+							<div className="absolute inset-0 z-0">
+								{mapComponent()}
+							</div>
+
+							{/* Bouton toggle la barre de recherche d'itinéraire */}
+							<div className="absolute top-4 left-4 z-30">
+								{buttonToggleSearchBar()}
+							</div>
+
+							{/* Barre de recherche en haut à gauche */}
+							<div className="absolute top-4 left-16 z-30">
+								{searchBar()}
+							</div>
+
+							{/* Filtres en haut à droite */}
+							<div className="absolute top-4 right-20 z-30">
+								{filterLayer()}
+							</div>
+
+							{/* Slider au centre en bas */}
+							<div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-30 w-[30%] flex justify-center">
+								<Slider
+									className="w-full"
+									defaultValue={[33]} max={100} step={1} />
+							</div>
+						</div>
+					</div>
+				</SidebarInset>
+			</SidebarProvider>
+		);
+	}
+
+	function buttonToggleSearchBar() {
+		return (
 			<Button
 				variant="secondary"
 				size="icon"
-				className="absolute top-4 left-4 z-10"
-				onClick={() =>
-					setIsRouteSearchBarOpen((prev) => !prev)
-
-				}
+				onClick={() => setIsRouteSearchBarOpen((prev) => !prev)}
 			>
 				<ChevronRightIcon
 					className={`transition-transform duration-300 ${isRouteSearchBarOpen ? "rotate-90" : ""
 						}`}
 				/>
 			</Button>
+		);
+	}
 
-			{/* Barre de recherche en haut à gauche */}
-			<div className={"absolute top-4 left-16 z-10 transition-all duration-300 w-72 opacity-100 bg-white shadow-lg rounded-lg p-2 space-y-3 overflow-hidden"}>
+	function searchBar() {
+		return (
+			<div className="transition-all duration-300 w-72 opacity-100 bg-white shadow-lg rounded-lg p-2 space-y-3 overflow-hidden">
 				{/* Recherche départ et générale*/}
 				<Command>
 					<CommandInput
@@ -347,7 +606,8 @@ const Home: React.FC = () => {
 								))}
 							</CommandGroup>
 							<CommandEmpty>Aucun résultat.</CommandEmpty>
-						</CommandList>)}
+						</CommandList>
+					)}
 				</Command>
 
 				{/* Recherche arrivée */}
@@ -367,36 +627,39 @@ const Home: React.FC = () => {
 										<CommandItem
 											key={idx}
 											value={s.label}
-											onSelect={() => { onSelectSuggestionEnd(s); }}
+											onSelect={() => {
+												onSelectSuggestionEnd(s);
+											}}
 										>
 											{s.label}
 										</CommandItem>
 									))}
 								</CommandGroup>
 								<CommandEmpty>Aucun résultat.</CommandEmpty>
-							</CommandList>)}
-					</Command>)}
+							</CommandList>
+						)}
+					</Command>
+				)}
 
-				{isRouteSearchBarOpen && (<div className="flex items-center gap-2 p-2">
-					<Checkbox
-						disabled={!startLocation || !endLocation}
-						onCheckedChange={(checked) => {
-							setRouteFilteredByRain(!checked);
-							// TODO: Rafraîchir l'itinéraire avec le filtre
-						}}
-					/>
-					<Label>Éviter la pluie</Label>
-				</div>)}
-
+				{isRouteSearchBarOpen && (
+					<div className="flex items-center gap-2 p-2">
+						<Checkbox
+							disabled={!startLocation || !endLocation}
+							onCheckedChange={(checked) => {
+								setRouteFilteredByRain(!checked);
+								// TODO: Rafraîchir l'itinéraire avec le filtre
+							}}
+						/>
+						<Label>Éviter la pluie</Label>
+					</div>
+				)}
 			</div>
+		);
+	}
 
-			{/* Slider au centre en haut */}
-			<Slider
-				className="absolute bottom-5 left-1/2 -translate-x-1/2 w-[30%] z-10"
-				defaultValue={[33]} max={100} step={1} />
-
-			{/* Filtres */}
-			<div className="absolute top-4 right-20 z-10 flex flex-row gap-2">
+	function filterLayer() {
+		return (
+			<div className="flex flex-row gap-2">
 				<MapFilterCard
 					setSelected={setIsTempMapSelected}
 					selected={isTempMapSelected}
@@ -418,272 +681,41 @@ const Home: React.FC = () => {
 					img={"../img/vent.png"}
 				/>
 			</div>
+		);
+	}
 
-			{/* Carte */}
-			<div className="w-full h-full">
-				<MapCard
-					center={center}
-					zoom={zoom}
-					showTempLayer={!!isTempMapSelected}
-					showRainLayer={!!isRainMapSelected}
-					showCloudLayer={!!isCloudMapSelected}
-					showWindLayer={!!isWindMapSelected}
-					routes={routes}
-					areas={areas}
-					startPin={
-						startLocation?.latitude && startLocation?.longitude
-							? [startLocation.latitude, startLocation.longitude]
-							: null
-					}
-					endPin={
-						endLocation?.latitude && endLocation?.longitude
-							? [endLocation.latitude, endLocation.longitude]
-							: null
-					}
-					onMapClick={handleMapClick}
-				/>
-			</div>
+	function mapComponent() {
+		return (
+			<MapCard
+				center={center}
+				zoom={zoom}
+				showTempLayer={!!isTempMapSelected}
+				showRainLayer={!!isRainMapSelected}
+				showCloudLayer={!!isCloudMapSelected}
+				showWindLayer={!!isWindMapSelected}
+				routes={routes}
+				areas={areas}
+				startPin={
+					startLocation?.latitude && startLocation?.longitude
+						? [startLocation.latitude, startLocation.longitude]
+						: null
+				}
+				endPin={
+					endLocation?.latitude && endLocation?.longitude
+						? [endLocation.latitude, endLocation.longitude]
+						: null
+				}
+				onMapClick={handleMapClick}
+			/>
+		);
+	}
 
-			{/* Sheet avec récap météo */}
-			<Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-				<SheetContent side="left" className="w-[380px] sm:w-[420px]">
-					{/* Header : Informations générales */}
-					<SheetHeader>
-						<SheetTitle>
-							{startLocation?.name ||
-								(startLocation?.latitude
-									? `${startLocation.latitude.toFixed(10)}, 
-				  ${startLocation.longitude.toFixed(10)}`
-									: "Informations")}
-						</SheetTitle>
-						<SheetDescription>
-							{/* Coordonnées */}
-							{startLocation && (
-								<div className="text-sm text-muted-foreground">
-									Coordonnées: {startLocation.latitude.toFixed(4)},{" "}
-									{startLocation.longitude.toFixed(4)}
-								</div>
-							)}
-						</SheetDescription>
-						<Button
-							variant="default"
-							size="sm"
-							className="mt-2 w-fit"
-							disabled={!meteoLoading && !meteoError && !startLocation?.meteo}
-							onClick={() => {
-								setIsSheetOpen(false);
-								setIsRouteSearchBarOpen(true);
-								setQueryStart(
-									startLocation?.name
-										? startLocation.name
-										: startLocation
-											? `${startLocation.latitude.toFixed(10)}, ${startLocation.longitude.toFixed(10)}`
-											: ""
-								);
-								setShowSuggestionStart(false);
-							}}
-						>
-							Itinéraire
-						</Button>
-					</SheetHeader>
+	// ---------- Home Render ----------
+	return (
+		<div className="relative w-full h-full">
 
-					<div className="mt-4 space-y-3">
-						{/* Cas d'erreur */}
-						{meteoError && (
-							<div className="text-sm text-red-600 p-2">
-								<CircleX className="inline-block mr-1 mb-1 text-red-500" />
-								{meteoError ||
-									"Erreur lors de la récupération des données météo."}
-							</div>
-						)}
-
-						{/* Chargement */}
-						{meteoLoading && (
-							<div className="text-sm text-muted-foreground p-2">
-								<Loader2 className="inline-block mr-1 mb-1 animate-spin" />
-								Chargement des données météo…
-							</div>
-						)}
-
-						{/* Aucune donnée */}
-						{!meteoLoading && !meteoError && !startLocation && (
-							<div className="text-sm text-muted-foreground p-2">
-								<TriangleAlert className="inline-block mr-1 mb-1 text-yellow-500" />
-								Sélectionner une localisation de départ pour afficher la météo.
-							</div>
-						)}
-
-						{/* TODO: ÇA POURRAIT NOUS SERVIR */}
-						{/* <Tabs defaultValue="Météo Actuelle">
-              <TabsList>
-                <TabsTrigger value="Météo Actuelle">Météo Actuelle</TabsTrigger>
-                <TabsTrigger value="Prévisions">Prévisions</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="Météo Actuelle">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Météo Actuelle</CardTitle>
-                    <CardDescription>
-                      Météo actuelle (décalage possible de 15 minutes)
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="grid gap-6"></CardContent>
-                </Card>
-              </TabsContent>
-              <TabsContent value="Prévisions">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Prévisions</CardTitle>
-                    <CardDescription>
-                      Prévisions prochaines heures
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="grid gap-6"></CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs> */}
-
-						{/* Affichage des données météo */}
-						{!meteoLoading && !meteoError && startLocation?.meteo && (
-							<div className="grid grid-cols-2">
-								{/* Section 1 : Météo actuelle */}
-								<div className="col-span-2 flex items-center gap-2 my-6">
-									<div className="h-px flex-1 bg-muted" />
-									<span className="text-xs uppercase tracking-wide text-muted-foreground">
-										Météo actuelle
-									</span>
-									<div className="h-px flex-1 bg-muted" />
-								</div>
-
-								<div className="col-span-2 grid grid-cols-2 gap-3 pl-2 pr-2">
-									<div className="rounded-2xl border p-3 shadow-sm flex flex-col items-center text-center">
-										<Thermometer className="w-5 h-5 mb-1 text-red-500" />
-										<div className="text-xs text-muted-foreground">
-											Température
-										</div>
-										<div className="text-xl font-semibold">
-											{startLocation?.meteo?.temperature ?? "-"}
-											{startLocation?.meteo?.temperature_unit
-												? ` ${startLocation.meteo.temperature_unit}`
-												: " °C"}
-										</div>
-									</div>
-
-									<div className="rounded-2xl border p-3 shadow-sm flex flex-col items-center text-center">
-										<Thermometer className="w-5 h-5 mb-1 text-red-500" />
-										<div className="text-xs text-muted-foreground">
-											Température ressentie
-										</div>
-										<div className="text-xl font-semibold">
-											{startLocation?.meteo?.apparent_temperature ?? "-"}
-											{startLocation?.meteo?.apparent_temperature_unit
-												? ` ${startLocation.meteo.apparent_temperature_unit}`
-												: " °C"}
-										</div>
-									</div>
-
-									<div className="rounded-2xl border p-3 shadow-sm flex flex-col items-center text-center">
-										<Droplets className="w-5 h-5 mb-1 text-cyan-500" />
-										<div className="text-xs text-muted-foreground">
-											Humidité
-										</div>
-										<div className="text-xl font-semibold">
-											{startLocation?.meteo?.humidity ?? "-"}
-											{startLocation?.meteo?.humidity_unit
-												? ` ${startLocation.meteo.humidity_unit}`
-												: " %"}
-										</div>
-									</div>
-
-									<div className="rounded-2xl border p-3 shadow-sm flex flex-col items-center text-center">
-										<Wind className="w-5 h-5 mb-1 text-gray-500" />
-										<div className="text-xs text-muted-foreground">Vent</div>
-										<div className="text-xl font-semibold">
-											{startLocation?.meteo?.windSpeed ?? "-"}
-											{startLocation?.meteo?.windSpeed_unit
-												? ` ${startLocation.meteo.windSpeed_unit}`
-												: " km/h"}
-										</div>
-									</div>
-
-									<div className="rounded-2xl border p-3 shadow-sm flex flex-col items-center text-center">
-										<CloudRainWind className="w-5 h-5 mb-1 text-blue-500" />
-										<div className="text-xs text-muted-foreground">Pluie</div>
-										<div className="text-xl font-semibold">
-											{startLocation?.meteo?.rain ?? "-"}
-											{startLocation?.meteo?.rain_unit
-												? ` ${startLocation.meteo.rain_unit}`
-												: " mm"}
-										</div>
-									</div>
-
-									<div className="rounded-2xl border p-3 shadow-sm flex flex-col items-center text-center">
-										<CloudDrizzle className="w-5 h-5 mb-1 text-blue-500" />
-										<div className="text-xs text-muted-foreground">
-											Précipitations
-										</div>
-										<div className="text-xl font-semibold">
-											{startLocation?.meteo?.precipitation ?? "-"}
-											{startLocation?.meteo?.precipitation_unit
-												? ` ${startLocation.meteo.precipitation_unit}`
-												: " mm"}
-										</div>
-									</div>
-
-									<div className="rounded-2xl border p-3 shadow-sm flex flex-col items-center text-center">
-										<Cloud className="w-5 h-5 mb-1 text-sky-500" />
-										<div className="text-xs text-muted-foreground">
-											Couverture nuageuse
-										</div>
-										<div className="text-xl font-semibold">
-											{startLocation?.meteo?.cloudCover ?? "-"}
-											{startLocation?.meteo?.cloudCover_unit
-												? ` ${startLocation.meteo.cloudCover_unit}`
-												: " %"}
-										</div>
-									</div>
-
-									<div className="rounded-2xl border p-3 shadow-sm flex flex-col items-center text-center">
-										<CloudFog className="w-5 h-5 mb-1 text-sky-500" />
-										<div className="text-xs text-muted-foreground">
-											Visibilité
-										</div>
-										<div className="text-xl font-semibold">
-											{startLocation?.meteo?.visibility ?? "-"}
-											{startLocation?.meteo?.visibility_unit
-												? ` ${startLocation.meteo.visibility_unit}`
-												: " m"}
-										</div>
-									</div>
-								</div>
-
-								{/* Section 2 : Prévisions prochaines heures */}
-								<div className="col-span-2 flex items-center gap-2 my-6">
-									<div className="h-px flex-1 bg-muted" />
-									<span className="text-xs uppercase tracking-wide text-muted-foreground">
-										Prévisions prochaines heures
-									</span>
-									<div className="h-px flex-1 bg-muted" />
-								</div>
-								{/* ...infos prévisionnelles à ajouter ici... */}
-							</div>
-						)}
-					</div>
-				</SheetContent>
-			</Sheet>
-
-			{/* Conditional reopen button */}
-			{!isSheetOpen && !isRouteSearchBarOpen && (
-				<Button
-					variant="secondary"
-					size="icon"
-					className="absolute top-1/2 left-5 -translate-y-1/2 z-10"
-					onClick={() => setIsSheetOpen(true)}
-				>
-					<ChevronLeftIcon className="rotate-180" />
-				</Button>
-			)}
+			{/* Sidebar informations */}
+			{sideBar()}
 		</div>
 	);
 };

@@ -16,10 +16,10 @@ import java.util.Map;
 @RequestMapping("/api/weather")
 public class WeatherController {
 
-    private final RestTemplate restTemplate;
+	private final RestTemplate restTemplate;
 
-    @Autowired
-    private RainViewerRadarPolygonService rainService;
+	@Autowired
+	private RainViewerRadarPolygonService rainService;
 
 	public WeatherController(RestTemplate restTemplate) {
 		this.restTemplate = restTemplate;
@@ -27,8 +27,8 @@ public class WeatherController {
 
 	@GetMapping("/current")
 	public Map<String, Object> getCurrentWeather(
-			@RequestParam(defaultValue = "48.86") double lat,
-			@RequestParam(defaultValue = "2.33") double lng) {
+			@RequestParam double lat,
+			@RequestParam double lng) {
 
 		String url = "https://api.open-meteo.com/v1/forecast"
 				+ "?latitude=" + lat
@@ -65,53 +65,52 @@ public class WeatherController {
 			filtered.put("error", "Impossible de lire la réponse de l'API");
 		}
 
-        return filtered;
-    }
+		return filtered;
+	}
 
-    /**
-     * Vérifie s'il pleut à un point donné par ses coordonnées.
-     * 
-     * @param lat Latitude du point
-     * @param lon Longitude du point
-     * @return Une réponse JSON contenant {isRaining: true/false}
-     */
-    @GetMapping("/rain/check")
-    public ResponseEntity<?> isRainingAtPoint(
-            @RequestParam double lat,
-            @RequestParam double lon) {
-        
-        Map<String, Object> response = new HashMap<>();
-        response.put("latitude", lat);
-        response.put("longitude", lon);
-        
-        try {
-            boolean isRaining = rainService.isRainingAt(lat, lon);
-            response.put("isRaining", isRaining);
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            response.put("error", "Failed to check rain status: " + e.getMessage());
-            return ResponseEntity.status(500).body(response);
-        }
-    }
+	/**
+	 * Vérifie s'il pleut à un point donné par ses coordonnées.
+	 * 
+	 * @param lat Latitude du point
+	 * @param lon Longitude du point
+	 * @return Une réponse JSON contenant {isRaining: true/false}
+	 */
+	@GetMapping("/rain/check")
+	public ResponseEntity<?> isRainingAtPoint(
+			@RequestParam double lat,
+			@RequestParam double lon) {
 
-    @GetMapping("/rain/zone")
-    public Map<String, Object> getRainZone(
-        @RequestParam double startLat,
-        @RequestParam double startLng,
-        @RequestParam double endLat,
-        @RequestParam double endLng
-    ) {
-        Map<String, Object> response = new HashMap<>();
-        Map<String, Double> expandedArea = AreaUtils.expandedArea(startLat, startLng, endLat, endLng, 30.0);
-        List<List<List<Double>>> polygonsLonLat;
-        try {
-            polygonsLonLat = rainService.fetchRainPolygons(expandedArea.get("latMax"), expandedArea.get("lonMin"), expandedArea.get("latMin"), expandedArea.get("lonMax"));
-        } catch (Exception e) {
-            response.put("error", "Failed to fetch rain polygons: " + e.getMessage());
-            return response;
-        }
-        response.put("polygons", AreaUtils.reverseLonLat(polygonsLonLat));
-        return response;
-    }
+		Map<String, Object> response = new HashMap<>();
+		response.put("latitude", lat);
+		response.put("longitude", lon);
+
+		try {
+			boolean isRaining = rainService.isRainingAt(lat, lon);
+			response.put("isRaining", isRaining);
+			return ResponseEntity.ok(response);
+		} catch (Exception e) {
+			response.put("error", "Failed to check rain status: " + e.getMessage());
+			return ResponseEntity.status(500).body(response);
+		}
+	}
+
+	@GetMapping("/rain/zone")
+	public Map<String, Object> getRainZone(
+			@RequestParam double startLat,
+			@RequestParam double startLng,
+			@RequestParam double endLat,
+			@RequestParam double endLng) {
+		Map<String, Object> response = new HashMap<>();
+		Map<String, Double> expandedArea = AreaUtils.expandedArea(startLat, startLng, endLat, endLng, 30.0);
+		List<List<List<Double>>> polygonsLonLat;
+		try {
+			polygonsLonLat = rainService.fetchRainPolygons(expandedArea.get("latMax"), expandedArea.get("lonMin"),
+					expandedArea.get("latMin"), expandedArea.get("lonMax"));
+		} catch (Exception e) {
+			response.put("error", "Failed to fetch rain polygons: " + e.getMessage());
+			return response;
+		}
+		response.put("polygons", AreaUtils.reverseLonLat(polygonsLonLat));
+		return response;
+	}
 }
-
