@@ -464,7 +464,11 @@ const Home: React.FC = () => {
 
 	function sideBar() {
 		return (
-			<SidebarProvider>
+			<SidebarProvider
+				defaultOpen={false}
+				open={isSideBarOpen}
+				onOpenChange={setIsSideBarOpen}
+			>
 				<AppSidebar
 					header={sideBarHeader()}
 					content={meteoComponent()}
