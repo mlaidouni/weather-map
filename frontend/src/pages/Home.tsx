@@ -35,8 +35,10 @@ import { RouteData } from "@/types/routes";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
-import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarInset, SidebarMenu, SidebarTrigger } from "@/components/ui/sidebar";
 import { SidebarProvider } from "@/components/ui/sidebar";
+import { Separator } from "@/components/ui/separator";
+import { AppSidebar } from "@/components/app-sidebar";
 
 const Home: React.FC = () => {
 	/// ---- États ----
@@ -408,73 +410,106 @@ const Home: React.FC = () => {
 		)
 	}
 
+	function meteoComponent() {
+		return (
+			<div className="mt-4 space-y-3">
+				{meteoError && (
+					<div className="text-sm text-red-600 p-2 rounded-md border border-red-200 bg-red-50">
+						<CircleX className="inline-block mr-1 mb-1 text-red-500" />
+						{meteoError ||
+							"Erreur lors de la récupération des données météo."}
+					</div>
+				)}
+
+				{meteoLoading && (
+					<div className="text-sm text-muted-foreground p-2 flex items-center gap-2">
+						<Loader2 className="w-4 h-4 animate-spin" />
+						Chargement des données météo…
+					</div>
+				)}
+
+				{!meteoLoading && !meteoError && !startLocation && (
+					<div className="text-sm text-muted-foreground p-2 flex items-center gap-2">
+						<TriangleAlert className="w-4 h-4 text-yellow-500" />
+						Sélectionner une localisation de départ pour afficher la météo.
+					</div>
+				)}
+
+				{!meteoLoading && !meteoError && startLocation?.meteo && (
+					<div className="grid grid-cols-2 gap-4">
+						<div className="col-span-2 flex items-center gap-2 my-4">
+							<div className="h-px flex-1 bg-muted" />
+							<span className="text-xs uppercase tracking-wide text-muted-foreground">
+								Météo actuelle
+							</span>
+							<div className="h-px flex-1 bg-muted" />
+						</div>
+
+						{meteoInfos()}
+
+						<div className="col-span-2 flex items-center gap-2 my-4">
+							<div className="h-px flex-1 bg-muted" />
+							<span className="text-xs uppercase tracking-wide text-muted-foreground">
+								Prévisions prochaines heures
+							</span>
+							<div className="h-px flex-1 bg-muted" />
+						</div>
+						{/* Prévisions à venir */}
+					</div>
+				)}
+			</div>
+
+		)
+	}
+
 	function sideBar() {
 		return (
-			<Sidebar>
-				<SidebarContent>
-					<SidebarGroup>
-						<SidebarGroupLabel>Application</SidebarGroupLabel>
-						<SidebarGroupContent>
-							{/* Header : Informations générales */}
-							{sideBarHeader()}
+			<SidebarProvider>
+				<AppSidebar
+					header={sideBarHeader()}
+					content={meteoComponent()}
+				/>
+				<SidebarInset>
+					<header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+						<SidebarTrigger className="-ml-1" />
+						<Separator
+							orientation="vertical"
+							className="mr-2 data-[orientation=vertical]:h-4"
+						/>
+						Weather Map
+					</header>
+					{/* Layout principal en position relative pour le positionnement absolu des éléments */}
+					<div className="relative w-full h-screen min-h-screen overflow-hidden">
+						{/* Carte en arrière-plan */}
+						<div className="absolute inset-0 z-0">
+							{mapComponent()}
+						</div>
 
-							<div className="mt-4 space-y-3">
-								{/* Cas d'erreur */}
-								{meteoError && (
-									<div className="text-sm text-red-600 p-2">
-										<CircleX className="inline-block mr-1 mb-1 text-red-500" />
-										{meteoError ||
-											"Erreur lors de la récupération des données météo."}
-									</div>
-								)}
+						{/* Bouton toggle la barre de recherche d'itinéraire */}
+						<div className="absolute top-4 left-4 z-30">
+							{buttonToggleSearchBar()}
+						</div>
 
-								{/* Chargement */}
-								{meteoLoading && (
-									<div className="text-sm text-muted-foreground p-2">
-										<Loader2 className="inline-block mr-1 mb-1 animate-spin" />
-										Chargement des données météo…
-									</div>
-								)}
+						{/* Barre de recherche en haut à gauche */}
+						<div className="absolute top-4 left-16 z-30">
+							{searchBar()}
+						</div>
 
-								{/* Aucune donnée */}
-								{!meteoLoading && !meteoError && !startLocation && (
-									<div className="text-sm text-muted-foreground p-2">
-										<TriangleAlert className="inline-block mr-1 mb-1 text-yellow-500" />
-										Sélectionner une localisation de départ pour afficher la météo.
-									</div>
-								)}
+						{/* Filtres en haut à droite */}
+						<div className="absolute top-4 right-20 z-30">
+							{filterLayer()}
+						</div>
 
-								{/* Affichage des données météo */}
-								{!meteoLoading && !meteoError && startLocation?.meteo && (
-									<div className="grid grid-cols-2">
-										{/* Section 1 : Météo actuelle */}
-										<div className="col-span-2 flex items-center gap-2 my-6">
-											<div className="h-px flex-1 bg-muted" />
-											<span className="text-xs uppercase tracking-wide text-muted-foreground">
-												Météo actuelle
-											</span>
-											<div className="h-px flex-1 bg-muted" />
-										</div>
-
-										{meteoInfos()}
-
-										{/* Section 2 : Prévisions prochaines heures */}
-										<div className="col-span-2 flex items-center gap-2 my-6">
-											<div className="h-px flex-1 bg-muted" />
-											<span className="text-xs uppercase tracking-wide text-muted-foreground">
-												Prévisions prochaines heures
-											</span>
-											<div className="h-px flex-1 bg-muted" />
-										</div>
-										{/* ...infos prévisionnelles à ajouter ici... */}
-									</div>
-								)}
-							</div>
-						</SidebarGroupContent>
-					</SidebarGroup>
-				</SidebarContent>
-			</Sidebar>
-		)
+						{/* Slider au centre en bas */}
+						<div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-30 w-[30%] flex justify-center">
+							<Slider
+								className="w-full"
+								defaultValue={[33]} max={100} step={1} />
+						</div>
+					</div>
+				</SidebarInset>
+			</SidebarProvider>
+		);
 	}
 
 	function buttonToggleSearchBar() {
@@ -482,7 +517,6 @@ const Home: React.FC = () => {
 			<Button
 				variant="secondary"
 				size="icon"
-				className="absolute top-4 left-4 z-10"
 				onClick={() => setIsRouteSearchBarOpen((prev) => !prev)}
 			>
 				<ChevronRightIcon
@@ -495,7 +529,7 @@ const Home: React.FC = () => {
 
 	function searchBar() {
 		return (
-			<div className={"absolute top-4 left-16 z-10 transition-all duration-300 w-72 opacity-100 bg-white shadow-lg rounded-lg p-2 space-y-3 overflow-hidden"}>
+			<div className="transition-all duration-300 w-72 opacity-100 bg-white shadow-lg rounded-lg p-2 space-y-3 overflow-hidden">
 				{/* Recherche départ et générale*/}
 				<Command>
 					<CommandInput
@@ -565,7 +599,7 @@ const Home: React.FC = () => {
 
 	function filterLayer() {
 		return (
-			<div className="absolute top-4 right-20 z-10 flex flex-row gap-2">
+			<div className="flex flex-row gap-2">
 				<MapFilterCard
 					setSelected={setIsTempMapSelected}
 					selected={isTempMapSelected}
@@ -619,36 +653,16 @@ const Home: React.FC = () => {
 	// ---------- Home Render ----------
 	return (
 		<div className="relative w-full h-full">
-			{/* Bouton toggle la barre de recherche d'itinéraire */}
-			{buttonToggleSearchBar()}
-
-			{/* Barre de recherche en haut à gauche */}
-			{searchBar()}
-
-			{/* Slider au centre en haut */}
-			<Slider
-				className="absolute bottom-5 left-1/2 -translate-x-1/2 w-[30%] z-10"
-				defaultValue={[33]} max={100} step={1} />
-
-			{/* Filtres */}
-			{filterLayer()}
-
-			{/* Carte */}
-			<div className="w-full h-full">
-				{mapComponent()}
-			</div>
 
 			{/* Sidebar informations */}
-			<SidebarProvider>
-				{sideBar()}
-			</SidebarProvider>
+			{sideBar()}
 
 			{/* Conditional reopen button */}
 			{!isSideBarOpen && (
 				<Button
 					variant="secondary"
 					size="icon"
-					className="absolute top-1/2 left-5 -translate-y-1/2 z-10"
+					className="top-1/2 left-5 -translate-y-1/2 z-10"
 					onClick={() => setIsSideBarOpen(true)}
 				>
 					<ChevronLeftIcon className="rotate-180" />
@@ -657,7 +671,5 @@ const Home: React.FC = () => {
 		</div>
 	);
 };
-
-
 
 export default Home;
