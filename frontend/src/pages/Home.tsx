@@ -42,6 +42,9 @@ import { RouteData } from "@/types/routes";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
+import { AreaPrevisionRoute } from "@/types/areaPrevisionRoute";
+
+import routeTestData from "./test-meteo1.json";
 
 const Home: React.FC = () => {
 	/// ---- États ----
@@ -68,11 +71,20 @@ const Home: React.FC = () => {
 	const [startLocation, setStartLocation] = useState<LocationData | null>(null);
 	const [endLocation, setEndLocation] = useState<LocationData | null>(null);
 
+	//Localisation du véhicule
+	const [vehicleLocation, setVehicleLocation] = useState<LatLngExpression | null>(null);
+
 	// Itinéraire
 	const [routes, setRoutes] = useState<RouteData[]>([]);
 	const [routeLoading, setRouteLoading] = useState(false);
 	const [routeError, setRouteError] = useState<string | null>(null);
 	const [areas, setAreas] = useState<Area[]>([]);
+
+	//Zone de pluie en fonction de l'itinéraire
+	const [areaPrevisionRoute, setAreaPrevisionRoute] = useState<AreaPrevisionRoute[]>([]);
+	const [indexPositionInStep, setIndexPositionInStep] = useState(0);
+	const [stepIndex, setStepIndex] = useState(0);
+	const [sliderValue, setSliderValue] = useState(0);
 
 	// Sheet
 	const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -91,6 +103,8 @@ const Home: React.FC = () => {
 		setAreas([]);
 		setRouteError(null);
 		setRouteLoading(false);
+		setAreaPrevisionRoute([]);
+		setVehicleLocation(null);
 	};
 
 	// Appel au backend pour calculer l'itinéraire
@@ -147,62 +161,91 @@ const Home: React.FC = () => {
 				setAreas(polygons);
 			}
 
-			const data = await fetchRoutingWeatherAware(startLatLng, endLatLng);
+			//const data = await fetchRoutingWeatherAware(startLatLng, endLatLng);
+			const data = routeTestData;
 
-			const apiRoutes = data.routes;
+			if (data.steps && Array.isArray(data.steps)) {
+				const routeWithRainAreas: AreaPrevisionRoute[] = data.steps.map((step, stepIndex) => {
+					// Traiter les polygones de pluie pour ce segment
+					const rainingPolygons: Area[] = step.rain_polygons
+						.map((polygon: number[][], polyIndex: number) => {
+							if (!Array.isArray(polygon) || polygon.length === 0) return null;
 
-			if (!apiRoutes || apiRoutes.length === 0) {
-				setRouteError("Aucun itinéraire trouvé");
-				return;
-			}
+							// Convertir les coordonnées
+							const coords = polygon
+								.map((pt: number[]) => {
+									if (Array.isArray(pt) && pt.length >= 2) {
+										const lat = Number(pt[0]);
+										const lng = Number(pt[1]);
+										if (!isNaN(lat) && !isNaN(lng)) return [lat, lng] as LatLngExpression;
+									}
+									return null;
+								})
+								.filter(Boolean) as LatLngExpression[];
 
-			// Traitement des données de l'itinéraire
-			if (Array.isArray(apiRoutes) && apiRoutes.length > 0) {
-				const processedRoutes: RouteData[] = apiRoutes.map((route, index) => {
-					// Process coordinates
-					const coordinates = route.coordinates
-						.map((coord: number[]) => {
-							const lat = Number(coord[0]);
-							const lng = Number(coord[1]);
+							if (coords.length === 0) return null;
 
-							if (isNaN(lat) || isNaN(lng)) {
-								console.error("Coordonnée invalide:", coord);
-								return null;
+							// Vérifier si le polygone est fermé, sinon le fermer
+							const first = coords[0] as [number, number];
+							const last = coords[coords.length - 1] as [number, number];
+							if (first[0] !== last[0] || first[1] !== last[1]) {
+								coords.push(first);
 							}
-							return [lat, lng] as LatLngExpression;
+
+							return {
+								coordinates: coords,
+								isRaining: true
+							} as Area;
+						}).filter(Boolean) as Area[];
+
+					// Traiter le segment de route
+					const routeSegment = step.route
+						.map((coord: number[]) => {
+							if (Array.isArray(coord) && coord.length >= 2) {
+								const lat = Number(coord[0]);
+								const lng = Number(coord[1]);
+								if (!isNaN(lat) && !isNaN(lng)) return [lat, lng] as LatLngExpression;
+							}
+							return null;
 						})
-						.filter(Boolean);
+						.filter(Boolean) as LatLngExpression[];
 
-					// Calculate distance in km (rounded to 1 decimal)
-					const distance = route.distance
-						? Math.round(route.distance / 1000 * 10) / 10
-						: 0;
-
-					// Calculate duration in minutes
-					const duration = route.duration
-						? Math.round(route.duration / 60)
-						: 0;
-
+					// Retourner l'objet AreaPrevisionRoute pour ce segment
 					return {
-						id: `route-${index}`,
-						coordinates,
-						distance,
-						duration
+						rainingArea: rainingPolygons,
+						route: routeSegment
 					};
 				});
 
-				setRoutes(processedRoutes);
-			}
-			else {
-				setRouteError("Format de données invalide");
+				// Mettre à jour l'état avec les données traitées
+				setAreaPrevisionRoute(routeWithRainAreas);
+				setVehicleLocation(startLatLng)
+
+				//Création de la route principale
+				const allCoordinates: LatLngExpression[] = [];
+				routeWithRainAreas.forEach(segment => {
+					if (segment.route && segment.route.length > 0) {
+					allCoordinates.push(...segment.route);
+					}
+				});
+				
+				if (allCoordinates.length > 0) {
+					const completeRoute: RouteData = {
+					id: 'route-main',
+					coordinates: allCoordinates,
+					distance: 0,
+					duration: 0  
+					};
+					setRoutes([completeRoute]);
+				}
+			} else {
+				// Réinitialiser si aucune donnée valide
+				setAreaPrevisionRoute([]);
 			}
 		}
-		catch (err) {
-			console.error("Erreur lors de la récupération de l'itinéraire:", err);
-			setRouteError("Impossible de calculer l'itinéraire");
-		}
-		finally {
-			setRouteLoading(false);
+		catch (e) {
+			console.error(e);
+			setRouteError("Impossible de calculer l'itinéraire.");
 		}
 	};
 
@@ -241,6 +284,40 @@ const Home: React.FC = () => {
 		setIsSheetOpen(true);
 		setMeteoError(null);
 		setMeteoLoading(true);
+	};
+
+	//Cette fonction pour mettre à jour la position du véhicule
+	const updateVehiclePosition = (value: number) => {
+		if (!routes.length || !routes[0].coordinates || routes[0].coordinates.length === 0) {
+			return;
+		}
+		
+		const coordinates = routes[0].coordinates;
+		const totalPoints = coordinates.length;
+		
+		// Calculez l'index dans le tableau de coordonnées en fonction de la valeur du slider
+		const pointIndex = Math.min(Math.floor((value / 100) * (totalPoints - 1)), totalPoints - 1);
+		
+		// Mettez à jour la position du véhicule
+		setVehicleLocation(coordinates[pointIndex]);
+		
+		// Si vous avez besoin de suivre l'étape actuelle pour areaPrevisionRoute
+		if (areaPrevisionRoute.length > 0) {
+			// Déterminez à quelle étape appartient ce point
+			let cumulativePoints = 0;
+			let currentStepIndex = 0;
+			
+			for (let i = 0; i < areaPrevisionRoute.length; i++) {
+				const stepPointCount = areaPrevisionRoute[i].route.length;
+				if (pointIndex < cumulativePoints + stepPointCount) {
+					currentStepIndex = i;
+					setIndexPositionInStep(pointIndex - cumulativePoints);
+					break;
+				}
+				cumulativePoints += stepPointCount;
+			}
+			setStepIndex(currentStepIndex);
+		}
 	};
 
 	const onSelectSuggestionEnd = async (s: Suggestion) => {
@@ -393,7 +470,15 @@ const Home: React.FC = () => {
 			{/* Slider au centre en haut */}
 			<Slider
 				className="absolute bottom-5 left-1/2 -translate-x-1/2 w-[30%] z-10"
-				defaultValue={[33]} max={100} step={1} />
+				value={[sliderValue]}
+				onValueChange={(values) => {
+					const newValue = values[0];
+					setSliderValue(newValue);
+					updateVehiclePosition(newValue);
+				}}
+				max={100}
+				step={1}
+			/>
 
 			{/* Filtres */}
 			<div className="absolute top-4 right-20 z-10 flex flex-row gap-2">
@@ -440,6 +525,7 @@ const Home: React.FC = () => {
 							? [endLocation.latitude, endLocation.longitude]
 							: null
 					}
+					vehicleLocation={vehicleLocation}
 					onMapClick={handleMapClick}
 				/>
 			</div>

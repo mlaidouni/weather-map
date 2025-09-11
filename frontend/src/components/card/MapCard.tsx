@@ -8,13 +8,14 @@ import {
 	ZoomControl,
 	Polyline,
 	useMapEvents,
-		Polygon,
+	Polygon,
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L, { LatLngExpression } from "leaflet";
 
 import { RouteData } from "@/types/routes";
 import { Area } from "@/types/area";
+import { AreaPrevisionRoute } from "@/types/areaPrevisionRoute";
 
 const apikey = import.meta.env.VITE_OPEN_WEATHER_API_KEY;
 const DEBUG = import.meta.env.DEBUG === 'true';
@@ -51,6 +52,8 @@ interface MapProps {
 	areas?: Area[];
 	startPin?: LatLngExpression | null;
 	endPin?: LatLngExpression | null;
+	vehicleLocation?: LatLngExpression | null;
+	areaPrevisionRoute?: AreaPrevisionRoute[];
 	onMapClick: (e: any) => void;
 }
 
@@ -124,6 +127,8 @@ const MapCard: React.FC<MapProps> = ({
 	areas = [],
 	startPin = null,
 	endPin = null,
+	vehicleLocation = null,
+	areaPrevisionRoute = [],
 	onMapClick,
 }) => {
 	return (
@@ -210,6 +215,17 @@ const MapCard: React.FC<MapProps> = ({
 						}}
 					/>
 				))}
+
+				{/* Afficher la position du véhicule s'il existe */}
+				{vehicleLocation && (
+					<Marker position={vehicleLocation} icon={L.icon({
+						iconUrl: "../img/soleil.png",
+						iconSize: [30, 30],
+						iconAnchor: [15, 15],
+						popupAnchor: [0, -15],
+					})} />
+				)}
+
 
 				{/* Afficher le point de départ s'il existe */}
 				{startPin && (
