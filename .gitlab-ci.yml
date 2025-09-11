@@ -14,8 +14,9 @@ build_front:
   image: node:20-alpine
   stage: build
   script:
-    - npm install --prefix frontend
-    - npm run build --prefix frontend
+    - cd frontend
+    - npm install
+    - npm run build
   artifacts:
     paths:
       - frontend/build/
