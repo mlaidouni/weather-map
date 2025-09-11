@@ -45,4 +45,12 @@ public class AreaUtils {
         }
         return reversed;
     }
+
+    public static List<List<Double>> reverseLonLat2(List<List<Double>> route) {
+        List<List<Double>> reversed = new ArrayList<>();
+        for (List<Double> point : route) {
+            reversed.add(List.of(point.get(1), point.get(0))); // Inverse lat/lon
+        }
+        return reversed;
+    }
 }

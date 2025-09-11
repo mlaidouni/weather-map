@@ -185,7 +185,6 @@ const Home: React.FC = () => {
 			}
 
 			const data = await fetchRoutingWeatherAware(startLatLng, endLatLng, signal);
-			//const data = routeTestData;
 
 			// If there is an error, show a popup
 			if (data.error) {
@@ -273,6 +272,7 @@ const Home: React.FC = () => {
 			}
 		}
 		catch (e: any) {
+			alert("Erreur lors du calcul de l'itinéraire : " + e.message);
 			// Don't show error if the request was aborted
 			if (e.name === 'AbortError') {
 				console.log('Request was aborted');

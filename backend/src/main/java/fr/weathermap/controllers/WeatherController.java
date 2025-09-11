@@ -103,7 +103,7 @@ public class WeatherController {
         @RequestParam double endLng
     ) {
         Map<String, Object> response = new HashMap<>();
-        Map<String, Double> expandedArea = AreaUtils.expandedArea(startLat, startLng, endLat, endLng, 30.0);
+        Map<String, Double> expandedArea = AreaUtils.expandedArea(startLat, startLng, endLat, endLng, 1.0);
         List<List<List<Double>>> polygonsLonLat;
         try {
             polygonsLonLat = rainService.fetchRainPolygons(expandedArea.get("latMax"), expandedArea.get("lonMin"), expandedArea.get("latMin"), expandedArea.get("lonMax"), TimeMode.OLDEST_PAST);
