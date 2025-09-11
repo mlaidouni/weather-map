@@ -21,7 +21,7 @@ build_front:
 
 # Build Backend
 build_back:
-  image: maven:3.9.1-eclipse-temurin-20
+  image: maven:3.9.9-amazoncorretto-17-alpine
   stage: build
   script:
     - cd backend
