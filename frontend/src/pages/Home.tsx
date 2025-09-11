@@ -41,6 +41,7 @@ import { Area } from "@/types/area";
 import { RouteData } from "@/types/routes";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
 
 const Home: React.FC = () => {
 	/// ---- États ----
@@ -388,6 +389,11 @@ const Home: React.FC = () => {
 				</div>)}
 
 			</div>
+
+			{/* Slider au centre en haut */}
+			<Slider
+				className="absolute top-100 w-[60%]"
+				defaultValue={[33]} max={100} step={1} />
 
 			{/* Filtres */}
 			<div className="absolute top-4 right-20 z-10 flex flex-row gap-2">
