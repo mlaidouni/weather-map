@@ -486,7 +486,7 @@ const Home: React.FC = () => {
 							{startLocation && endLocation ? (
 								<>
 									{/* Toggle de sélection */}
-									<div className="flex items-center gap-2 my-3">
+									<div className="flex justify-center gap-2 my-3">
 										<Button
 											variant={
 												selectedMeteoView === "start" ? "default" : "outline"
