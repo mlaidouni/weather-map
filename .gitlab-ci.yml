@@ -18,6 +18,10 @@ build_front:
   artifacts:
     paths:
       - frontend/build/
+  tags:
+    - weather-ci
+
+  
 
 # Build Backend
 build_back:
@@ -29,6 +33,8 @@ build_back:
   artifacts:
     paths:
       - backend/target/app.jar
+  tags:
+    - weather-ci
 
 # Deploy Docker containers
 deploy:
