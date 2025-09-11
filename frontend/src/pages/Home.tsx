@@ -18,7 +18,6 @@ import {
 	CloudFog,
 	CloudDrizzle,
 	CloudRainWind,
-	ChevronLeftIcon,
 	TriangleAlert,
 	Loader2,
 	CircleX,
@@ -35,8 +34,7 @@ import { RouteData } from "@/types/routes";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
-import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarInset, SidebarMenu, SidebarTrigger } from "@/components/ui/sidebar";
-import { SidebarProvider } from "@/components/ui/sidebar";
+import { SidebarInset, SidebarTrigger, SidebarProvider } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { AppSidebar } from "@/components/app-sidebar";
 
@@ -339,7 +337,7 @@ const Home: React.FC = () => {
 		)
 	}
 
-	function meteoInfoCard(title: String, icon: React.ReactNode, data: number | undefined, unit: string | undefined) {
+	function meteoInfoCard(title: string, icon: React.ReactNode, data: number | undefined, unit: string | undefined) {
 		return (
 			<div className="rounded-2xl border p-3 shadow-sm flex flex-col items-center text-center">
 				{/* <Thermometer className="w-5 h-5 mb-1 text-red-500" /> */}
@@ -660,18 +658,6 @@ const Home: React.FC = () => {
 
 			{/* Sidebar informations */}
 			{sideBar()}
-
-			{/* Conditional reopen button */}
-			{!isSideBarOpen && (
-				<Button
-					variant="secondary"
-					size="icon"
-					className="top-1/2 left-5 -translate-y-1/2 z-10"
-					onClick={() => setIsSideBarOpen(true)}
-				>
-					<ChevronLeftIcon className="rotate-180" />
-				</Button>
-			)}
 		</div>
 	);
 };
