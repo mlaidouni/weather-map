@@ -2,6 +2,8 @@ package fr.weathermap.services;
 
 import org.springframework.stereotype.Service;
 
+import fr.weathermap.utils.DouglasPeucker;
+
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
@@ -24,6 +26,9 @@ import java.util.*;
 @Service
 public class RainViewerRadarPolygonService {
 
+    // Tolérance de simplification Douglas-Peucker (en degrés)
+    public static final double DouglasPeuckerToleranceDegrees = 0.05;
+
     // Modes de sélection temporelle
     public enum TimeMode {
         OLDEST_PAST,
@@ -43,6 +48,15 @@ public class RainViewerRadarPolygonService {
             this.polygons = polygons;
             this.frameTime = frameTime;
             this.modeUsed = modeUsed;
+        }
+
+        public List<List<List<Double>>> getSimplifiedPolygons() {
+            List<List<List<Double>>> simplifiedPolygons = new ArrayList<>();
+            for (List<List<Double>> polygon : polygons) {
+                List<List<Double>> simplified = DouglasPeucker.simplify(polygon, DouglasPeuckerToleranceDegrees);    // Tolérance en degrés
+                simplifiedPolygons.add(simplified);
+            }
+            return simplifiedPolygons;
         }
     }
 
@@ -65,8 +79,10 @@ public class RainViewerRadarPolygonService {
                                                       double leftLon,
                                                       double bottomLat,
                                                       double rightLon,
-                                                      TimeMode mode) throws IOException, InterruptedException {
-        return fetchRainPolygons(topLat, leftLon, bottomLat, rightLon, mode, -1, null).polygons;
+                                                      TimeMode mode,
+                                                      boolean simplify) throws IOException, InterruptedException {
+        RainPolygonsResult result = fetchRainPolygons(topLat, leftLon, bottomLat, rightLon, mode, -1, null);
+        return simplify ? result.getSimplifiedPolygons() : result.polygons;
     }
 
     // Retour enrichi avec choix mode

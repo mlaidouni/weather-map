@@ -106,7 +106,7 @@ public class WeatherController {
         Map<String, Double> expandedArea = AreaUtils.expandedArea(startLat, startLng, endLat, endLng, 1.0);
         List<List<List<Double>>> polygonsLonLat;
         try {
-            polygonsLonLat = rainService.fetchRainPolygons(expandedArea.get("latMax"), expandedArea.get("lonMin"), expandedArea.get("latMin"), expandedArea.get("lonMax"), TimeMode.OLDEST_PAST);
+            polygonsLonLat = rainService.fetchRainPolygons(expandedArea.get("latMax"), expandedArea.get("lonMin"), expandedArea.get("latMin"), expandedArea.get("lonMax"), TimeMode.OLDEST_PAST, true);
         } catch (Exception e) {
             response.put("error", "Failed to fetch rain polygons: " + e.getMessage());
             return response;
