@@ -286,6 +286,20 @@ const Home: React.FC = () => {
 		setMeteoLoading(true);
 	};
 
+	//Fonction pour mettre à jour les zones de pluie
+	const updateRainingAreas = (stepIdx: number) => {
+		if (!areaPrevisionRoute || areaPrevisionRoute.length === 0 || stepIdx >= areaPrevisionRoute.length) {
+			setAreas([]);
+			return;
+		}
+		
+		// Récupérer les zones de pluie de l'étape actuelle
+		const currentStepRainingAreas = areaPrevisionRoute[stepIdx].rainingArea;
+		
+		// Mettre à jour l'état areas avec ces zones
+		setAreas(currentStepRainingAreas);
+	};
+
 	//Cette fonction pour mettre à jour la position du véhicule
 	const updateVehiclePosition = (value: number) => {
 		if (!routes.length || !routes[0].coordinates || routes[0].coordinates.length === 0) {
@@ -308,15 +322,20 @@ const Home: React.FC = () => {
 			let currentStepIndex = 0;
 			
 			for (let i = 0; i < areaPrevisionRoute.length; i++) {
-				const stepPointCount = areaPrevisionRoute[i].route.length;
-				if (pointIndex < cumulativePoints + stepPointCount) {
-					currentStepIndex = i;
-					setIndexPositionInStep(pointIndex - cumulativePoints);
-					break;
-				}
-				cumulativePoints += stepPointCount;
+			const stepPointCount = areaPrevisionRoute[i].route.length;
+			if (pointIndex < cumulativePoints + stepPointCount) {
+				currentStepIndex = i;
+				setIndexPositionInStep(pointIndex - cumulativePoints);
+				break;
 			}
+			cumulativePoints += stepPointCount;
+			}
+			
+			// Mise à jour de l'étape actuelle
 			setStepIndex(currentStepIndex);
+			
+			// Mise à jour des zones de pluie correspondant à l'étape actuelle
+			updateRainingAreas(currentStepIndex);
 		}
 	};
 
@@ -378,6 +397,13 @@ const Home: React.FC = () => {
 	// Masque les suggestions quand la localisation est sélectionnée
 	useEffect(() => { if (startLocation?.name) setShowSuggestionStart(false); }, [startLocation?.name]);
 	useEffect(() => { if (endLocation?.name) setShowSuggestionEnd(false); }, [endLocation?.name]);
+
+	// Effet pour mettre à jour les zones de pluie quand l'étape change
+	useEffect(() => {
+		if (areaPrevisionRoute.length > 0) {
+			updateRainingAreas(stepIndex);
+		}
+	}, [stepIndex, areaPrevisionRoute]);
 
 
 	// ---------- RENDER ----------
@@ -526,6 +552,7 @@ const Home: React.FC = () => {
 							: null
 					}
 					vehicleLocation={vehicleLocation}
+					areaPrevisionRoute={areaPrevisionRoute}
 					onMapClick={handleMapClick}
 				/>
 			</div>
