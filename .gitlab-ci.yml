@@ -19,7 +19,8 @@ build_front:
     - npm run build
   artifacts:
     paths:
-      - frontend/build/
+      - frontend/dist/
+      - frontend/Dockerfile.prod  # inclure le Dockerfile.prod dans les artifacts
     expire_in: 1 hour
   tags:
     - weather-ci
@@ -36,6 +37,7 @@ build_back:
   artifacts:
     paths:
       - backend/target/
+      - backend/Dockerfile.prod  # inclure le Dockerfile.prod
     expire_in: 1 hour
   tags:
     - weather-ci
@@ -63,10 +65,12 @@ deploy:
     # Crée les dossiers sur le VPS
     - ssh $DEPLOY_USER@$DEPLOY_HOST "mkdir -p $DEPLOY_PATH/frontend $DEPLOY_PATH/backend $DEPLOY_PATH/nginx"
 
-    # Copie les builds et sources sur le VPS
-    - scp -r frontend/build $DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/frontend
-    - scp -r backend/* $DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/backend
-    - scp -r nginx/conf.d $DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/nginx
+    # Copie les builds et Dockerfile.prod sur le VPS
+    - scp -r frontend/dist $DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/frontend/
+    - scp frontend/Dockerfile.prod $DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/frontend/Dockerfile.prod
+    - scp -r backend/target $DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/backend/
+    - scp backend/Dockerfile.prod $DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/backend/Dockerfile.prod
+    - scp -r nginx/conf.d $DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/nginx/
 
     # Crée le réseau Docker si pas existant
     - ssh $DEPLOY_USER@$DEPLOY_HOST "docker network inspect weathermap-network || docker network create weathermap-network"
