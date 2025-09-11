@@ -17,7 +17,7 @@ build_front:
     - npm run build
   artifacts:
     paths:
-      - frontend/build/
+      - frontend/dist/
   tags:
     - weather-ci
 
@@ -50,7 +50,7 @@ deploy:
     - ssh-keyscan $DEPLOY_HOST >> ~/.ssh/known_hosts
   script:
     - ssh $DEPLOY_USER@$DEPLOY_HOST "mkdir -p $DEPLOY_PATH"
-    - scp frontend/build/* $DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/frontend/
+    - scp frontend/dist/* $DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/frontend/
     - scp backend/target/app.jar $DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/backend/app.jar
     - scp nginx/conf.d/* $DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/nginx/conf.d/
     - ssh $DEPLOY_USER@$DEPLOY_HOST "docker stop weathermap-nginx || true"
