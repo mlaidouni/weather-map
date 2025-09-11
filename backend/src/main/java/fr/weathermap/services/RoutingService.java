@@ -176,8 +176,7 @@ public class RoutingService {
     public Map<String, Object> calculateWeatherAwareRouteBis(
             double startLat, double startLng,
             double endLat, double endLng,
-            List<String> avoidWeatherConditions,
-            RainViewerRadarPolygonService rainViewerRadarPolygonService
+            List<String> avoidWeatherConditions
     ) {
         Map<String, Object> response = new HashMap<>();
         List<Map<String, Object>> steps = new ArrayList<>();
@@ -446,6 +445,6 @@ public class RoutingService {
     public static void main(String[] args) {
         RoutingService service = new RoutingService();
         RainViewerRadarPolygonService rainService = new RainViewerRadarPolygonService();
-        System.out.println("result : " + service.calculateWeatherAwareRouteBis(48.8566, 2.3522, 48.864716, 2.349014, Arrays.asList("rain"), rainService));
+        System.out.println("result : " + service.calculateWeatherAwareRouteBis(48.8566, 2.3522, 48.864716, 2.349014, Arrays.asList("rain")));
     }
 }

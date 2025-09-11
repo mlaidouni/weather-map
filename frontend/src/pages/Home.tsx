@@ -161,8 +161,8 @@ const Home: React.FC = () => {
 				setAreas(polygons);
 			}
 
-			//const data = await fetchRoutingWeatherAware(startLatLng, endLatLng);
-			const data = routeTestData;
+			const data = await fetchRoutingWeatherAware(startLatLng, endLatLng);
+			//const data = routeTestData;
 
 			if (data.steps && Array.isArray(data.steps)) {
 				const routeWithRainAreas: AreaPrevisionRoute[] = data.steps.map((step, stepIndex) => {

@@ -22,7 +22,7 @@ public class RoutingController {
 			@RequestParam double endLng,
 			@RequestParam(required = false, defaultValue = "") List<String> avoidConditions) {
 
-		return routingService.calculateWeatherAwareRoute(
+		return routingService.calculateWeatherAwareRouteBis(
 				startLat, startLng, endLat, endLng, avoidConditions);
 	}
 }
