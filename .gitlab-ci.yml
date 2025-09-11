@@ -63,14 +63,13 @@ deploy:
     - ssh-keyscan $DEPLOY_HOST >> ~/.ssh/known_hosts
   script:
     # Crée les dossiers sur le VPS
-    - ssh $DEPLOY_USER@$DEPLOY_HOST "mkdir -p $DEPLOY_PATH/frontend $DEPLOY_PATH/backend $DEPLOY_PATH/nginx"
+    - ssh $DEPLOY_USER@$DEPLOY_HOST "mkdir -p $DEPLOY_PATH/frontend $DEPLOY_PATH/backend"
 
     # Copie les builds et Dockerfile.prod sur le VPS
     - scp -r frontend/dist $DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/frontend/
     - scp frontend/Dockerfile.prod $DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/frontend/Dockerfile.prod
     - scp -r backend/target $DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/backend/
     - scp backend/Dockerfile.prod $DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/backend/Dockerfile.prod
-    - scp -r nginx/conf.d $DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/nginx/
 
     # Crée le réseau Docker si pas existant
     - ssh $DEPLOY_USER@$DEPLOY_HOST "docker network inspect weathermap-network || docker network create weathermap-network"
