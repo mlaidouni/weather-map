@@ -445,8 +445,8 @@ const Home: React.FC = () => {
 					onMapClick={handleMapClick}
 				/>
 			</div>
-			<SidebarProvider>
 
+			<SidebarProvider>
 				<Sidebar>
 					<SidebarContent>
 						<SidebarGroup>
@@ -471,7 +471,233 @@ const Home: React.FC = () => {
 			</SidebarProvider>
 
 			{/* Sheet avec récap météo */}
+			<Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+				<SheetContent side="left" className="w-[380px] sm:w-[420px]">
+					{/* Header : Informations générales */}
+					<SheetHeader>
+						<SheetTitle>
+							{startLocation?.name ||
+								(startLocation?.latitude
+									? `${startLocation.latitude.toFixed(10)}, 
+				  ${startLocation.longitude.toFixed(10)}`
+									: "Informations")}
+						</SheetTitle>
+						<SheetDescription>
+							{/* Coordonnées */}
+							{startLocation && (
+								<div className="text-sm text-muted-foreground">
+									Coordonnées: {startLocation.latitude.toFixed(4)},{" "}
+									{startLocation.longitude.toFixed(4)}
+								</div>
+							)}
+						</SheetDescription>
+						<Button
+							variant="default"
+							size="sm"
+							className="mt-2 w-fit"
+							disabled={!meteoLoading && !meteoError && !startLocation?.meteo}
+							onClick={() => {
+								setIsSheetOpen(false);
+								setIsRouteSearchBarOpen(true);
+								setQueryStart(
+									startLocation?.name
+										? startLocation.name
+										: startLocation
+											? `${startLocation.latitude.toFixed(10)}, ${startLocation.longitude.toFixed(10)}`
+											: ""
+								);
+								setShowSuggestionStart(false);
+							}}
+						>
+							Itinéraire
+						</Button>
+					</SheetHeader>
 
+					<div className="mt-4 space-y-3">
+						{/* Cas d'erreur */}
+						{meteoError && (
+							<div className="text-sm text-red-600 p-2">
+								<CircleX className="inline-block mr-1 mb-1 text-red-500" />
+								{meteoError ||
+									"Erreur lors de la récupération des données météo."}
+							</div>
+						)}
+
+						{/* Chargement */}
+						{meteoLoading && (
+							<div className="text-sm text-muted-foreground p-2">
+								<Loader2 className="inline-block mr-1 mb-1 animate-spin" />
+								Chargement des données météo…
+							</div>
+						)}
+
+						{/* Aucune donnée */}
+						{!meteoLoading && !meteoError && !startLocation && (
+							<div className="text-sm text-muted-foreground p-2">
+								<TriangleAlert className="inline-block mr-1 mb-1 text-yellow-500" />
+								Sélectionner une localisation de départ pour afficher la météo.
+							</div>
+						)}
+
+						{/* TODO: ÇA POURRAIT NOUS SERVIR */}
+						{/* <Tabs defaultValue="Météo Actuelle">
+              <TabsList>
+                <TabsTrigger value="Météo Actuelle">Météo Actuelle</TabsTrigger>
+                <TabsTrigger value="Prévisions">Prévisions</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="Météo Actuelle">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Météo Actuelle</CardTitle>
+                    <CardDescription>
+                      Météo actuelle (décalage possible de 15 minutes)
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="grid gap-6"></CardContent>
+                </Card>
+              </TabsContent>
+              <TabsContent value="Prévisions">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Prévisions</CardTitle>
+                    <CardDescription>
+                      Prévisions prochaines heures
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="grid gap-6"></CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs> */}
+
+						{/* Affichage des données météo */}
+						{!meteoLoading && !meteoError && startLocation?.meteo && (
+							<div className="grid grid-cols-2">
+								{/* Section 1 : Météo actuelle */}
+								<div className="col-span-2 flex items-center gap-2 my-6">
+									<div className="h-px flex-1 bg-muted" />
+									<span className="text-xs uppercase tracking-wide text-muted-foreground">
+										Météo actuelle
+									</span>
+									<div className="h-px flex-1 bg-muted" />
+								</div>
+
+								<div className="col-span-2 grid grid-cols-2 gap-3 pl-2 pr-2">
+									<div className="rounded-2xl border p-3 shadow-sm flex flex-col items-center text-center">
+										<Thermometer className="w-5 h-5 mb-1 text-red-500" />
+										<div className="text-xs text-muted-foreground">
+											Température
+										</div>
+										<div className="text-xl font-semibold">
+											{startLocation?.meteo?.temperature ?? "-"}
+											{startLocation?.meteo?.temperature_unit
+												? ` ${startLocation.meteo.temperature_unit}`
+												: " °C"}
+										</div>
+									</div>
+
+									<div className="rounded-2xl border p-3 shadow-sm flex flex-col items-center text-center">
+										<Thermometer className="w-5 h-5 mb-1 text-red-500" />
+										<div className="text-xs text-muted-foreground">
+											Température ressentie
+										</div>
+										<div className="text-xl font-semibold">
+											{startLocation?.meteo?.apparent_temperature ?? "-"}
+											{startLocation?.meteo?.apparent_temperature_unit
+												? ` ${startLocation.meteo.apparent_temperature_unit}`
+												: " °C"}
+										</div>
+									</div>
+
+									<div className="rounded-2xl border p-3 shadow-sm flex flex-col items-center text-center">
+										<Droplets className="w-5 h-5 mb-1 text-cyan-500" />
+										<div className="text-xs text-muted-foreground">
+											Humidité
+										</div>
+										<div className="text-xl font-semibold">
+											{startLocation?.meteo?.humidity ?? "-"}
+											{startLocation?.meteo?.humidity_unit
+												? ` ${startLocation.meteo.humidity_unit}`
+												: " %"}
+										</div>
+									</div>
+
+									<div className="rounded-2xl border p-3 shadow-sm flex flex-col items-center text-center">
+										<Wind className="w-5 h-5 mb-1 text-gray-500" />
+										<div className="text-xs text-muted-foreground">Vent</div>
+										<div className="text-xl font-semibold">
+											{startLocation?.meteo?.windSpeed ?? "-"}
+											{startLocation?.meteo?.windSpeed_unit
+												? ` ${startLocation.meteo.windSpeed_unit}`
+												: " km/h"}
+										</div>
+									</div>
+
+									<div className="rounded-2xl border p-3 shadow-sm flex flex-col items-center text-center">
+										<CloudRainWind className="w-5 h-5 mb-1 text-blue-500" />
+										<div className="text-xs text-muted-foreground">Pluie</div>
+										<div className="text-xl font-semibold">
+											{startLocation?.meteo?.rain ?? "-"}
+											{startLocation?.meteo?.rain_unit
+												? ` ${startLocation.meteo.rain_unit}`
+												: " mm"}
+										</div>
+									</div>
+
+									<div className="rounded-2xl border p-3 shadow-sm flex flex-col items-center text-center">
+										<CloudDrizzle className="w-5 h-5 mb-1 text-blue-500" />
+										<div className="text-xs text-muted-foreground">
+											Précipitations
+										</div>
+										<div className="text-xl font-semibold">
+											{startLocation?.meteo?.precipitation ?? "-"}
+											{startLocation?.meteo?.precipitation_unit
+												? ` ${startLocation.meteo.precipitation_unit}`
+												: " mm"}
+										</div>
+									</div>
+
+									<div className="rounded-2xl border p-3 shadow-sm flex flex-col items-center text-center">
+										<Cloud className="w-5 h-5 mb-1 text-sky-500" />
+										<div className="text-xs text-muted-foreground">
+											Couverture nuageuse
+										</div>
+										<div className="text-xl font-semibold">
+											{startLocation?.meteo?.cloudCover ?? "-"}
+											{startLocation?.meteo?.cloudCover_unit
+												? ` ${startLocation.meteo.cloudCover_unit}`
+												: " %"}
+										</div>
+									</div>
+
+									<div className="rounded-2xl border p-3 shadow-sm flex flex-col items-center text-center">
+										<CloudFog className="w-5 h-5 mb-1 text-sky-500" />
+										<div className="text-xs text-muted-foreground">
+											Visibilité
+										</div>
+										<div className="text-xl font-semibold">
+											{startLocation?.meteo?.visibility ?? "-"}
+											{startLocation?.meteo?.visibility_unit
+												? ` ${startLocation.meteo.visibility_unit}`
+												: " m"}
+										</div>
+									</div>
+								</div>
+
+								{/* Section 2 : Prévisions prochaines heures */}
+								<div className="col-span-2 flex items-center gap-2 my-6">
+									<div className="h-px flex-1 bg-muted" />
+									<span className="text-xs uppercase tracking-wide text-muted-foreground">
+										Prévisions prochaines heures
+									</span>
+									<div className="h-px flex-1 bg-muted" />
+								</div>
+								{/* ...infos prévisionnelles à ajouter ici... */}
+							</div>
+						)}
+					</div>
+				</SheetContent>
+			</Sheet>
 
 			{/* Conditional reopen button */}
 			{!isSheetOpen && !isRouteSearchBarOpen && (
