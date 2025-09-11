@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 
 import fr.weathermap.services.RainViewerRadarPolygonService;
+import fr.weathermap.services.RainViewerRadarPolygonService.TimeMode;
 import fr.weathermap.utils.AreaUtils;
 
 import java.util.HashMap;
@@ -105,7 +106,7 @@ public class WeatherController {
         Map<String, Double> expandedArea = AreaUtils.expandedArea(startLat, startLng, endLat, endLng, 30.0);
         List<List<List<Double>>> polygonsLonLat;
         try {
-            polygonsLonLat = rainService.fetchRainPolygons(expandedArea.get("latMax"), expandedArea.get("lonMin"), expandedArea.get("latMin"), expandedArea.get("lonMax"));
+            polygonsLonLat = rainService.fetchRainPolygons(expandedArea.get("latMax"), expandedArea.get("lonMin"), expandedArea.get("latMin"), expandedArea.get("lonMax"), TimeMode.OLDEST_PAST);
         } catch (Exception e) {
             response.put("error", "Failed to fetch rain polygons: " + e.getMessage());
             return response;

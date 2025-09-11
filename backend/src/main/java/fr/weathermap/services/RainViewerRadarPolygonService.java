@@ -26,6 +26,7 @@ public class RainViewerRadarPolygonService {
 
     // Modes de sélection temporelle
     public enum TimeMode {
+        OLDEST_PAST,
         LATEST_PAST,
         NEAREST_TO_NOW,
         PAST_INDEX,
@@ -63,8 +64,9 @@ public class RainViewerRadarPolygonService {
     public List<List<List<Double>>> fetchRainPolygons(double topLat,
                                                       double leftLon,
                                                       double bottomLat,
-                                                      double rightLon) throws IOException, InterruptedException {
-        return fetchRainPolygons(topLat, leftLon, bottomLat, rightLon, TimeMode.NEAREST_TO_NOW, -1, null).polygons;
+                                                      double rightLon,
+                                                      TimeMode mode) throws IOException, InterruptedException {
+        return fetchRainPolygons(topLat, leftLon, bottomLat, rightLon, mode, -1, null).polygons;
     }
 
     // Retour enrichi avec choix mode
@@ -178,7 +180,7 @@ public class RainViewerRadarPolygonService {
 
     // Surcharge simple (comportement historique)
     public boolean isRainingAt(double lat, double lon) throws IOException, InterruptedException {
-        return isRainingAt(lat, lon, TimeMode.LATEST_PAST, -1, null);
+        return isRainingAt(lat, lon, TimeMode.OLDEST_PAST, -1, null);
     }
 
     /**
@@ -232,6 +234,8 @@ public class RainViewerRadarPolygonService {
         if (cat == null || cat.past.isEmpty()) return null;
 
         switch (mode) {
+            case OLDEST_PAST:
+                return cat.past.get(0); // Returns the oldest observation
             case LATEST_PAST:
                 return cat.past.get(cat.past.size() - 1);
 

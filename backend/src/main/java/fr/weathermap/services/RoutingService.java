@@ -5,6 +5,7 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import fr.weathermap.services.RainViewerRadarPolygonService.RainPolygonsResult;
 import fr.weathermap.utils.AreaUtils;
 
 import java.util.*;
@@ -184,8 +185,8 @@ public class RoutingService {
         System.out.println("Calculating weather-aware route from (" + startLat + ", " + startLng + ") to (" + endLat + ", " + endLng + ") avoiding: " + avoidWeatherConditions);
     
         // Step 1: Get all rain polygons across time (past and forecast)
-        Map<String, Double> expandedArea = AreaUtils.expandedArea(startLat, startLng, endLat, endLng, 1.0);
-        List<RainViewerRadarPolygonService.RainPolygonsResult> timeSequencedPolygons;
+        Map<String, Double> expandedArea = AreaUtils.expandedArea(startLat, startLng, endLat, endLng, 30.0);
+        List<RainPolygonsResult> timeSequencedPolygons;
         try {
             timeSequencedPolygons = rainViewerRadarPolygonService.fetchAllRainPolygons(
                 expandedArea.get("latMax"), 
