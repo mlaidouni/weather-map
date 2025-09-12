@@ -6,13 +6,14 @@ import {
 	DrawerHeader,
 	DrawerTitle,
 } from "@/components/ui/drawer";
-import { Line } from "react-chartjs-2";
+import { Bar } from "react-chartjs-2";
 import {
 	Chart as ChartJS,
 	CategoryScale,
 	LinearScale,
 	PointElement,
 	LineElement,
+	BarElement,
 	Title as ChartTitle,
 	Tooltip,
 	Legend,
@@ -23,6 +24,7 @@ ChartJS.register(
 	LinearScale,
 	PointElement,
 	LineElement,
+	BarElement,
 	ChartTitle,
 	Tooltip,
 	Legend
@@ -1241,26 +1243,32 @@ onEndPinMove={(latlng) => {
 							</div>
 						)}
 						{forecastData && selectedMeteoKey && forecastData.time && forecastData[selectedMeteoKey] && (
-							<Line
-								data={{
-									labels: forecastData.time,
-									datasets: [
-										{
-											label: selectedMeteoKey,
-											data: forecastData[selectedMeteoKey],
-											borderColor: "rgb(59,130,246)",
-											backgroundColor: "rgba(59,130,246,0.2)",
+							<div className="w-full h-48">
+								<Bar
+									data={{
+										labels: forecastData.time,
+										datasets: [
+											{
+												label: selectedMeteoKey,
+												data: forecastData[selectedMeteoKey],
+												backgroundColor: "rgba(59,130,246,0.7)",
+												borderColor: "rgb(59,130,246)",
+												borderWidth: 1,
+											},
+										],
+									}}
+									options={{
+										responsive: true,
+										plugins: {
+											legend: { display: true },
+											title: { display: false },
 										},
-									],
-								}}
-								options={{
-									responsive: true,
-									plugins: {
-										legend: { display: true },
-										title: { display: false },
-									},
-								}}
-							/>
+										maintainAspectRatio: false,
+									}}
+									height={192}
+									width={400}
+								/>
+							</div>
 						)}
 						{forecastData && selectedMeteoKey && (!forecastData[selectedMeteoKey] || !forecastData.time) && (
 							<div className="text-sm text-muted-foreground">Aucune donnée prévisionnelle disponible.</div>
