@@ -947,7 +947,7 @@ const Home: React.FC = () => {
 							<Checkbox
 								disabled={routeLoading || routeError != null}
 								checked={avoidConditionRain}
-								onCheckedChange={(checked) => { setAvoidConditionRain(!!checked); }} />
+								onCheckedChange={(checked) => { setAvoidConditionRain(!!checked); if (!checked) setDynamicMode(false); }} />
 							<Label>Éviter la pluie</Label>
 						</div>
 						<div className="flex items-center gap-2 p-2">
