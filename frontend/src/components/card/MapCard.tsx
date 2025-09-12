@@ -228,8 +228,8 @@ const MapCard: React.FC<MapProps> = ({
 				{/* Afficher la position du véhicule s'il existe */}
 				{vehicleLocation && (
 					<Marker position={vehicleLocation} icon={L.icon({
-						iconUrl: "../img/soleil.png",
-						iconSize: [30, 30],
+						iconUrl: "../img/pngegg.png",
+						iconSize: [40, 40],
 						iconAnchor: [15, 15],
 						popupAnchor: [0, -15],
 					})} />
