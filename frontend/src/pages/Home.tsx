@@ -640,7 +640,7 @@ const Home: React.FC = () => {
 		unit: string | undefined
 	) {
 		return (
-			<div className="rounded-2xl border p-3 shadow-sm flex flex-col items-center text-center">
+			<div className="rounded-2xl border p-3 ml-2 mr-2 shadow-sm flex flex-col items-center text-center">
 				{icon}
 				<div className="text-xs text-muted-foreground">{title}</div>
 				<div className="text-xl font-semibold">
