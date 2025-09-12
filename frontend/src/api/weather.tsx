@@ -19,6 +19,5 @@ export async function fetchMeteoFromLocation(
 		`/api/weather/current?lat=${(lat)}&lng=${(lon)}`,
 		{ signal }
 	);
-	if (!res.ok) throw new Error(`Erreur API: ${res.status}`);
 	return res.json();
 }
