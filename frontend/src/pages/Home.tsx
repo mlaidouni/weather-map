@@ -840,6 +840,7 @@ const Home: React.FC = () => {
 							{/* Slider au centre en bas */}
 							<div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-30 w-[30%] flex justify-center">
 								<Slider
+									disabled={!routes || routes.length === 0 || routes[0].coordinates.length === 0}
 									className="absolute bottom-5 left-1/2 -translate-x-1/2 w-[30%] z-10"
 									value={[sliderValue]}
 									onValueChange={(values) => {
