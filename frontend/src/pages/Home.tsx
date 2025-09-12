@@ -302,7 +302,8 @@ const Home: React.FC = () => {
 				} else {
 					setRoutes([]);
 					setStepIndex(0);
-					setAreas(routeWithRainAreas.length > 0 ? routeWithRainAreas[0].rainingArea : []);
+					if (dynamicMode)
+						setAreas(routeWithRainAreas.length > 0 ? routeWithRainAreas[0].rainingArea : []);
 				}
 			} else {
 				// Réinitialiser si aucune donnée valide
@@ -861,8 +862,10 @@ const Home: React.FC = () => {
 											updateVehiclePosition(newValue);
 										} else {
 											// Mode "aucune route": slider -> sélection de la frame pluie
-											const idx = computeRainStepFromSlider(newValue);
-											setStepIndex(idx); // useEffect mettra à jour areas via updateRainingAreas
+											if (dynamicMode) {
+												const idx = computeRainStepFromSlider(newValue);
+												setStepIndex(idx); // useEffect mettra à jour areas via updateRainingAreas
+											}
 										}
 									}}
 									max={100}
