@@ -90,7 +90,7 @@ const Home: React.FC = () => {
 	const [stepIndex, setStepIndex] = useState(0);
 	const [sliderValue, setSliderValue] = useState(0);
 
-	// Sheet
+	// SideBar
 	const [isSideBarOpen, setIsSideBarOpen] = useState(false);
 
 	// Météo (loading/error séparés pour start/end)
@@ -119,7 +119,6 @@ const Home: React.FC = () => {
 			meteoAbortControllerRef.current = null;
 		}
 
-		// FIXME: Doit gérer aussi l'affichage des barre, sheet, etc.
 		setStartLocation(null);
 		setEndLocation(null);
 		setRoutes([]);
@@ -366,9 +365,7 @@ const Home: React.FC = () => {
 			}
 		} finally {
 			// Only clear loading state if this is still the current request
-			// FIXME: mettre set loading
 			setLoading(false);
-
 		}
 	};
 
@@ -385,6 +382,7 @@ const Home: React.FC = () => {
 		setStartLocation(newLoc);
 		setCenter(s.coordinates as LatLngExpression);
 		setZoom(13);
+		setIsSideBarOpen(true);
 	};
 
 	//Fonction pour mettre à jour les zones de pluie
@@ -464,7 +462,7 @@ const Home: React.FC = () => {
 		setEndLocation(newLoc);
 		setCenter(s.coordinates as LatLngExpression);
 		setZoom(13);
-		setIsSideBarOpen(true); // FIXME: Utile ?
+		setIsSideBarOpen(true);
 	};
 
 	/// ---- Effets ----
@@ -851,7 +849,7 @@ const Home: React.FC = () => {
 							{/* Slider au centre en bas */}
 							<div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-30 w-[30%] flex justify-center">
 								<Slider
-									disabled={!routes || routes.length === 0 || routes[0].coordinates.length === 0}
+									// disabled={!routes || routes.length === 0 || routes[0].coordinates.length === 0}
 									className="absolute bottom-5 left-1/2 -translate-x-1/2 w-[30%] z-10"
 									value={[sliderValue]}
 									onValueChange={(values) => {
@@ -905,7 +903,6 @@ const Home: React.FC = () => {
 						onValueChange={setQueryStart}
 					/>
 
-					{/* FIXME: Les suggestions devraient se masquer quand on sélectionne une suggestion */}
 					{showSuggestionStart && queryStart && (
 						<CommandList>
 							<CommandGroup heading="Suggestions">
@@ -933,7 +930,6 @@ const Home: React.FC = () => {
 							onValueChange={setQueryEnd}
 						/>
 
-						{/* FIXME: Les suggestions devraient se masquer quand on sélectionne une suggestion */}
 						{showSuggestionEnd && queryEnd && (
 							<CommandList>
 								<CommandGroup heading="Suggestions">
