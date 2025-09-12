@@ -2,9 +2,10 @@
 
 ## Contributeurs
 
-- PARIS Albin
-- 
+- FRIEDMANN eliot
 - LAÏDOUNI Mohamed
+- PARIS Albin
+- YAZICI Servan
 
 ## Prérequis
 

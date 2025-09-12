@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 
 import fr.weathermap.services.RainViewerRadarPolygonService;
+import fr.weathermap.services.RainViewerRadarPolygonService.TimeMode;
 import fr.weathermap.utils.AreaUtils;
 
 import java.util.HashMap;
@@ -94,23 +95,23 @@ public class WeatherController {
 		}
 	}
 
-	@GetMapping("/rain/zone")
-	public Map<String, Object> getRainZone(
-			@RequestParam double startLat,
-			@RequestParam double startLng,
-			@RequestParam double endLat,
-			@RequestParam double endLng) {
-		Map<String, Object> response = new HashMap<>();
-		Map<String, Double> expandedArea = AreaUtils.expandedArea(startLat, startLng, endLat, endLng, 30.0);
-		List<List<List<Double>>> polygonsLonLat;
-		try {
-			polygonsLonLat = rainService.fetchRainPolygons(expandedArea.get("latMax"), expandedArea.get("lonMin"),
-					expandedArea.get("latMin"), expandedArea.get("lonMax"));
-		} catch (Exception e) {
-			response.put("error", "Failed to fetch rain polygons: " + e.getMessage());
-			return response;
-		}
-		response.put("polygons", AreaUtils.reverseLonLat(polygonsLonLat));
-		return response;
-	}
+    @GetMapping("/rain/zone")
+    public Map<String, Object> getRainZone(
+        @RequestParam double startLat,
+        @RequestParam double startLng,
+        @RequestParam double endLat,
+        @RequestParam double endLng
+    ) {
+        Map<String, Object> response = new HashMap<>();
+        Map<String, Double> expandedArea = AreaUtils.expandedArea(startLat, startLng, endLat, endLng, 1.0);
+        List<List<List<Double>>> polygonsLonLat;
+        try {
+            polygonsLonLat = rainService.fetchRainPolygons(expandedArea.get("latMax"), expandedArea.get("lonMin"), expandedArea.get("latMin"), expandedArea.get("lonMax"), TimeMode.OLDEST_PAST, true);
+        } catch (Exception e) {
+            response.put("error", "Failed to fetch rain polygons: " + e.getMessage());
+            return response;
+        }
+        response.put("polygons", AreaUtils.reverseLonLat(polygonsLonLat));
+        return response;
+    }
 }

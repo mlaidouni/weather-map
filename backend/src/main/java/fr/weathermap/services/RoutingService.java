@@ -17,192 +17,373 @@ public class RoutingService {
 
     private final String valhallaAPI = "http://37.187.49.205:8002/route";
 
-    /**
-     * Calculate a simple route between two points.
-     * Returns only the decoded list of coordinates (lat, lon).
-     */
-    public List<List<Double>> calculateSimpleRoute(
+    public Map<String, Object> calculateWeatherAwareRouteStatic(
             double startLat, double startLng,
-            double endLat, double endLng
-    ) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
+            double endLat, double endLng,
+            List<String> avoidWeatherConditions) {
 
-        Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("locations", Arrays.asList(
-                Map.of("lat", startLat, "lon", startLng),
-                Map.of("lat", endLat, "lon", endLng)
-        ));
-        requestBody.put("costing", "auto");
+        Map<String, Object> result = new HashMap<>();
+        boolean useRain = (avoidWeatherConditions != null && avoidWeatherConditions.contains("rain"));
 
-        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+        List<RainViewerRadarPolygonService.RainPolygonsResult> frames = List.of();
+        List<List<List<Double>>> polygons = List.of();
 
-        RestTemplate restTemplate = new RestTemplate();
-        Map<String, Object> apiResponse;
-        try {
-            apiResponse = restTemplate.postForObject(valhallaAPI, entity, Map.class);
-        } catch (Exception e) {
-            System.err.println("Routing request failed: " + e.getMessage());
-            return Collections.emptyList();
-        }
-
-        if (apiResponse == null) {
-            return Collections.emptyList();
-        }
-
-        Map<String, Object> trip = (Map<String, Object>) apiResponse.get("trip");
-        if (trip == null) {
-            return Collections.emptyList();
-        }
-
-        List<Map<String, Object>> legs = (List<Map<String, Object>>) trip.get("legs");
-        if (legs == null || legs.isEmpty()) {
-            return Collections.emptyList();
-        }
-
-        List<List<Double>> allCoordinates = new ArrayList<>();
-
-        try {
-            for (Map<String, Object> leg : legs) {
-                String shape = (String) leg.get("shape");
-                if (shape != null) {
-                    List<List<Double>> coords = decodePolyline(shape, 6);
-                    if (!coords.isEmpty()) {
-                        if (!allCoordinates.isEmpty()) {
-                            List<Double> last = allCoordinates.get(allCoordinates.size() - 1);
-                            List<Double> first = coords.get(0);
-                            if (last.get(0).equals(first.get(0)) && last.get(1).equals(first.get(1))) {
-                                coords.remove(0);
-                            }
-                        }
-                        allCoordinates.addAll(coords);
-                    }
+        if (useRain) {
+            try {
+                // Petite zone élargie (1 km)
+                Map<String, Double> expanded = AreaUtils.expandedArea(startLat, startLng, endLat, endLng, 1.0);
+                frames = rainViewerRadarPolygonService.fetchAllRainPolygons(
+                        expanded.get("latMax"), expanded.get("lonMin"),
+                        expanded.get("latMin"), expanded.get("lonMax"));
+                if (!frames.isEmpty()) {
+                    // On prend uniquement la première frame (simulation "état actuel")
+                    polygons = frames.get(0).getSimplifiedPolygons();
+                } else {
+                    useRain = false;
                 }
+            } catch (Exception e) {
+                useRain = false;
             }
-        } catch (Exception e) {
-            System.err.println("Failed to parse routing data: " + e.getMessage());
-            return Collections.emptyList();
         }
 
-        return allCoordinates;
+        Map<String, Object> segment = buildRouteSegment(startLat, startLng, endLat, endLng, useRain ? polygons : null);
+        if (segment == null) {
+            result.put("error", "Routing failed");
+            result.put("duration", 0);
+            result.put("distance", 0);
+            result.put("steps", List.of());
+            return result;
+        }
+
+        double duration = toDouble(segment.get("segment_duration"));
+        double distance = toDouble(segment.get("segment_distance"));
+
+        Map<String, Object> step = new HashMap<>();
+        // Conserver la cohérence avec la version dynamique (conversion éventuelle
+        // lon/lat selon utilitaires)
+        step.put("rain_polygons", useRain ? AreaUtils.reverseLonLat(polygons) : List.of());
+        step.put("route", AreaUtils.reverseLonLat2((List<List<Double>>) segment.get("segment_route")));
+
+        result.put("duration", duration);
+        result.put("distance", distance);
+        result.put("steps", List.of(step));
+        return result;
     }
 
     /**
-     * Calculate a route between two points avoiding areas with specified weather conditions
-     * Returns simplified route data with only distance, duration and coordinates
+     * Nouveau format:
+     * {
+     * "duration": <seconds>,
+     * "distance": <meters>,
+     * "steps": [
+     * {
+     * "rain_polygons": [ [ [lon,lat], ... ], ... ],
+     * "route": [ [lon,lat], ... ]
+     * },
+     * ...
+     * ]
+     * }
      */
-    public Map<String, Object> calculateWeatherAwareRoute(
+    public Map<String, Object> calculateWeatherAwareRouteDynamic(
             double startLat, double startLng,
             double endLat, double endLng,
-            List<String> avoidWeatherConditions
-    ) {
-        Map<String, Object> response = new HashMap<>();
+            List<String> avoidWeatherConditions) {
+        Map<String, Object> result = new HashMap<>();
 
-        System.out.println("Calculating weather-aware route from (" + startLat + ", " + startLng + ") to (" + endLat + ", " + endLng + ") avoiding: " + avoidWeatherConditions);
+        boolean dynamicRain = (avoidWeatherConditions != null && avoidWeatherConditions.contains("rain"));
 
+        // Récupération des frames pluie (si demandé)
+        List<RainViewerRadarPolygonService.RainPolygonsResult> frames = List.of();
+        if (dynamicRain) {
+            try {
+                // Bounding box élargie (1 km) pour récupérer suffisamment de tuiles
+                Map<String, Double> expanded = AreaUtils.expandedArea(startLat, startLng, endLat, endLng, 1.0);
+                frames = rainViewerRadarPolygonService.fetchAllRainPolygons(
+                        expanded.get("latMax"), expanded.get("lonMin"),
+                        expanded.get("latMin"), expanded.get("lonMax"));
+            } catch (Exception e) {
+                // En cas d'échec on désactive le mode dynamique (fallback)
+                dynamicRain = false;
+            }
+        }
+
+        if (!dynamicRain || frames.isEmpty()) {
+            // Fallback: une seule route complète (sans segmentation temporelle)
+            Map<String, Object> singleStep = buildRouteSegment(startLat, startLng, endLat, endLng, null);
+            if (singleStep == null) {
+                result.put("error", "Routing failed");
+                result.put("duration", 0);
+                result.put("distance", 0);
+                result.put("steps", List.of());
+                return result;
+            }
+            double duration = ((Number) singleStep.get("segment_duration")).doubleValue();
+            double distance = ((Number) singleStep.get("segment_distance")).doubleValue();
+            // Adapter au format final
+            Map<String, Object> stepOut = new HashMap<>();
+            stepOut.put("rain_polygons", List.of());
+            stepOut.put("route", singleStep.get("segment_route"));
+            result.put("duration", duration);
+            result.put("distance", distance);
+            result.put("steps", List.of(stepOut));
+            return result;
+        }
+
+        // Mode dynamique
+        List<Map<String, Object>> steps = new ArrayList<>();
+        double totalDuration = 0.0;
+        double totalDistance = 0.0;
+
+        double currentStartLat = startLat;
+        double currentStartLng = startLng;
+
+        double globalTimeCovered = 0.0; // cumul en secondes sur le trajet simulé
+
+        for (int i = 0; i < frames.size(); i++) {
+            RainViewerRadarPolygonService.RainPolygonsResult frame = frames.get(i);
+            List<List<List<Double>>> simplifiedPolygons = frame.getSimplifiedPolygons();
+
+            double frameThreshold = (i + 1) * 600.0; // 10 min * (i+1)
+            double remainingWindow = frameThreshold - globalTimeCovered;
+
+            Map<String, Object> segment = buildRouteSegment(currentStartLat, currentStartLng, endLat, endLng,
+                    simplifiedPolygons);
+            if (segment == null)
+                break;
+
+            @SuppressWarnings("unchecked")
+            List<List<Double>> fullShapeLatLon = (List<List<Double>>) segment.get("segment_shape_latlon");
+            double segmentTotalDuration = toDouble(segment.get("segment_duration")); // sec
+            double segmentTotalDistance = toDouble(segment.get("segment_distance")); // m
+
+            boolean isLastFrame = (i == frames.size() - 1);
+
+            // Si dernière frame ou tout tient dans la fenêtre => on consomme tout
+            if (isLastFrame || segmentTotalDuration <= remainingWindow) {
+                List<List<Double>> stepRouteLonLat = toLonLat(fullShapeLatLon);
+                globalTimeCovered += segmentTotalDuration;
+                totalDuration += segmentTotalDuration;
+                totalDistance += segmentTotalDistance;
+
+                Map<String, Object> outStep = new HashMap<>();
+                outStep.put("rain_polygons", AreaUtils.reverseLonLat(simplifiedPolygons));
+                outStep.put("route", AreaUtils.reverseLonLat2(stepRouteLonLat));
+                steps.add(outStep);
+                if (!isLastFrame) {
+                    // Nouveau départ = fin du segment (arrivée globale atteinte)
+                    if (!fullShapeLatLon.isEmpty()) {
+                        List<Double> last = fullShapeLatLon.get(fullShapeLatLon.size() - 1);
+                        currentStartLat = last.get(0);
+                        currentStartLng = last.get(1);
+                    }
+                }
+                break; // arrivée atteinte
+            }
+
+            // Sinon on doit couper AVANT remainingWindow (strictement inférieur)
+            double targetTime = remainingWindow - 0.1; // petite marge pour rester strictement < seuil
+            if (targetTime < 0)
+                targetTime = remainingWindow * 0.5;
+
+            SplitResult split = splitShapeByTime(fullShapeLatLon, segmentTotalDuration, segmentTotalDistance,
+                    targetTime);
+            if (split == null || split.shapeIndex <= 0) {
+                // Impossible de couper proprement -> on applique tout et on stoppe
+                List<List<Double>> stepRouteLonLat = toLonLat(fullShapeLatLon);
+                globalTimeCovered += segmentTotalDuration;
+                totalDuration += segmentTotalDuration;
+                totalDistance += segmentTotalDistance;
+
+                Map<String, Object> outStep = new HashMap<>();
+                outStep.put("rain_polygons", AreaUtils.reverseLonLat(simplifiedPolygons));
+                outStep.put("route", AreaUtils.reverseLonLat2(stepRouteLonLat));
+                steps.add(outStep);
+                break;
+            }
+
+            // Route partielle pour ce step
+            List<List<Double>> partialShape = new ArrayList<>(fullShapeLatLon.subList(0, split.shapeIndex + 1));
+            if (split.interpolatedPoint != null) {
+                partialShape.add(split.interpolatedPoint); // ajouter point interpolé
+            }
+
+            List<List<Double>> stepRouteLonLat = toLonLat(partialShape);
+
+            globalTimeCovered += split.timeUsed;
+            totalDuration += split.timeUsed;
+            totalDistance += split.distanceUsed;
+
+            Map<String, Object> outStep = new HashMap<>();
+            outStep.put("rain_polygons", AreaUtils.reverseLonLat(simplifiedPolygons));
+            outStep.put("route", AreaUtils.reverseLonLat2(stepRouteLonLat));
+            steps.add(outStep);
+
+            // Nouveau point de départ = point de coupure (interpolé si présent)
+            List<Double> newStart = (split.interpolatedPoint != null)
+                    ? split.interpolatedPoint
+                    : fullShapeLatLon.get(split.shapeIndex);
+            currentStartLat = newStart.get(0);
+            currentStartLng = newStart.get(1);
+        }
+
+        // Remplissage résultat
+        result.put("duration", totalDuration);
+        result.put("distance", totalDistance);
+        result.put("steps", steps);
+
+        return result;
+    }
+
+    private static class SplitResult {
+        int shapeIndex; // index du point précédent la coupure
+        List<Double> interpolatedPoint; // point ajouté (lat,lon) si coupure au milieu d'un segment
+        double timeUsed; // secondes utilisées jusqu'à la coupure
+        double distanceUsed; // mètres utilisés jusqu'à la coupure
+    }
+
+    private SplitResult splitShapeByTime(List<List<Double>> shapeLatLon,
+            double totalDurationSec,
+            double totalDistanceMeters,
+            double targetTimeSec) {
+        if (shapeLatLon == null || shapeLatLon.size() < 2)
+            return null;
+        if (targetTimeSec <= 0 || targetTimeSec >= totalDurationSec)
+            return null;
+
+        // Distances cumulées
+        double[] segDist = new double[shapeLatLon.size() - 1];
+        double cum = 0.0;
+        for (int i = 0; i < segDist.length; i++) {
+            List<Double> a = shapeLatLon.get(i);
+            List<Double> b = shapeLatLon.get(i + 1);
+            segDist[i] = haversineMeters(a.get(0), a.get(1), b.get(0), b.get(1));
+            cum += segDist[i];
+        }
+        if (cum <= 0)
+            return null;
+
+        // Approche proportionnelle temps <-> distance
+        double targetDistance = (targetTimeSec / totalDurationSec) * totalDistanceMeters;
+        if (targetDistance <= 0)
+            return null;
+        if (targetDistance >= totalDistanceMeters)
+            return null;
+
+        double accDist = 0.0;
+        for (int i = 0; i < segDist.length; i++) {
+            double nextAcc = accDist + segDist[i];
+            if (nextAcc > targetDistance) {
+                // Coupure dans ce segment
+                double remain = targetDistance - accDist;
+                double ratio = (segDist[i] == 0) ? 0 : (remain / segDist[i]);
+                List<Double> A = shapeLatLon.get(i);
+                List<Double> B = shapeLatLon.get(i + 1);
+                // Interpolation linéaire (approx suffisante)
+                double lat = A.get(0) + (B.get(0) - A.get(0)) * ratio;
+                double lon = A.get(1) + (B.get(1) - A.get(1)) * ratio;
+
+                double timeUsed = targetTimeSec;
+                SplitResult sr = new SplitResult();
+                sr.shapeIndex = i; // i = point précédent
+                sr.interpolatedPoint = List.of(lat, lon);
+                sr.distanceUsed = targetDistance;
+                sr.timeUsed = timeUsed;
+                return sr;
+            }
+            accDist = nextAcc;
+        }
+        return null;
+    }
+
+    private static double haversineMeters(double lat1, double lon1, double lat2, double lon2) {
+        double R = 6371000.0;
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLon = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
+                        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+    }
+
+    // Construit un segment de route entre deux points avec (ou sans) polygones
+    // d’exclusion
+    // Retourne:
+    // segment_duration (sec), segment_distance (m),
+    // segment_shape_latlon (List<[lat,lon]>),
+    // segment_route (List<[lon,lat]>), segment_maneuvers (liste brute maneuvers)
+    private Map<String, Object> buildRouteSegment(double sLat, double sLon,
+            double eLat, double eLon,
+            List<List<List<Double>>> excludePolygons) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
-        Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("locations", Arrays.asList(
-                Map.of("lat", startLat, "lon", startLng),
-                Map.of("lat", endLat, "lon", endLng)
-        ));
-
-        requestBody.put("costing", "auto");
-
-        // Add avoid polygons if "rain" is in avoidWeatherConditions
-        if(avoidWeatherConditions != null && avoidWeatherConditions.contains("rain")) {
-            Map<String, Double> expandedArea = AreaUtils.expandedArea(startLat, startLng, endLat, endLng, 1.0);
-            List<List<List<Double>>> polygonsLonLat;
-            try {
-                polygonsLonLat = rainViewerRadarPolygonService.fetchRainPolygons(expandedArea.get("latMax"), expandedArea.get("lonMin"), expandedArea.get("latMin"), expandedArea.get("lonMax"));
-            } catch (Exception e) {
-                response.put("error", "Failed to fetch rain polygons: " + e.getMessage());
-                return response;
-            }
-            requestBody.put("exclude_polygons", polygonsLonLat);
+        Map<String, Object> body = new HashMap<>();
+        body.put("locations", Arrays.asList(
+                Map.of("lat", sLat, "lon", sLon),
+                Map.of("lat", eLat, "lon", eLon)));
+        body.put("costing", "auto");
+        if (excludePolygons != null) {
+            body.put("exclude_polygons", excludePolygons); // lon/lat attendu par Valhalla
         }
 
-        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+        RestTemplate rt = new RestTemplate();
+        Map<String, Object> api = rt.postForObject(valhallaAPI, new HttpEntity<>(body, headers), Map.class);
+        if (api == null)
+            return null;
 
-        System.out.println("Requesting route from own API with body: " + requestBody);
+        Map<String, Object> trip = cast(api.get("trip"));
+        if (trip == null)
+            return null;
 
-        RestTemplate restTemplate = new RestTemplate();
-        Map<String, Object> apiResponse = restTemplate.postForObject(valhallaAPI, entity, Map.class);
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> legs = (List<Map<String, Object>>) trip.get("legs");
+        if (legs == null || legs.isEmpty())
+            return null;
 
-        List<Map<String, Object>> simplifiedRoutes = new ArrayList<>();
+        Map<String, Object> leg = legs.get(0);
+        Map<String, Object> summary = cast(leg.get("summary"));
+        double segDuration = toDouble(summary != null ? summary.get("time") : 0.0);
+        double segDistanceMeters = toDouble(summary != null ? summary.get("length") : 0.0) * 1000.0; // km -> m
 
+        String shape = (String) leg.get("shape");
+        List<List<Double>> shapeLatLon = (shape != null) ? decodePolyline(shape, 6) : List.of();
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> maneuvers = (List<Map<String, Object>>) leg.get("maneuvers");
+
+        Map<String, Object> out = new HashMap<>();
+        out.put("segment_duration", segDuration);
+        out.put("segment_distance", segDistanceMeters);
+        out.put("segment_shape_latlon", shapeLatLon);
+        out.put("segment_route", toLonLat(shapeLatLon));
+        out.put("segment_maneuvers", maneuvers != null ? maneuvers : List.of());
+        return out;
+    }
+
+    private static double toDouble(Object o) {
+        if (o instanceof Number)
+            return ((Number) o).doubleValue();
         try {
-            if (apiResponse == null) {
-                response.put("routes", simplifiedRoutes);
-                response.put("error", "Empty response from routing API");
-                return response;
-            }
-
-            Map<String, Object> trip = (Map<String, Object>) apiResponse.get("trip");
-            if (trip == null) {
-                response.put("routes", simplifiedRoutes);
-                response.put("error", "Missing trip object in response");
-                return response;
-            }
-
-            List<Map<String, Object>> legs = (List<Map<String, Object>>) trip.get("legs");
-            if (legs == null || legs.isEmpty()) {
-                response.put("routes", simplifiedRoutes);
-                response.put("error", "No legs in trip");
-                return response;
-            }
-
-            double totalDistanceMeters = 0.0;
-            double totalDurationSeconds = 0.0;
-            List<List<Double>> allCoordinates = new ArrayList<>();
-
-            for (Map<String, Object> leg : legs) {
-                Map<String, Object> legSummary = (Map<String, Object>) leg.get("summary");
-                if (legSummary != null) {
-                    // length is in kilometers in sample; convert to meters
-                    Object lengthObj = legSummary.get("length");
-                    if (lengthObj instanceof Number) {
-                        totalDistanceMeters += ((Number) lengthObj).doubleValue() * 1000.0;
-                    }
-                    Object timeObj = legSummary.get("time");
-                    if (timeObj instanceof Number) {
-                        totalDurationSeconds += ((Number) timeObj).doubleValue();
-                    }
-                }
-
-                String shape = (String) leg.get("shape");
-                if (shape != null) {
-                    List<List<Double>> coords = decodePolyline(shape, 6);
-                    if (!coords.isEmpty()) {
-                        if (!allCoordinates.isEmpty()) {
-                            List<Double> last = allCoordinates.get(allCoordinates.size() - 1);
-                            List<Double> first = coords.get(0);
-                            if (last.get(0).equals(first.get(0)) && last.get(1).equals(first.get(1))) {
-                                coords.remove(0);
-                            }
-                        }
-                        allCoordinates.addAll(coords);
-                    }
-                }
-            }
-
-            Map<String, Object> simplifiedRoute = new HashMap<>();
-            simplifiedRoute.put("distance", totalDistanceMeters);
-            simplifiedRoute.put("duration", totalDurationSeconds);
-            simplifiedRoute.put("coordinates", allCoordinates);
-
-            simplifiedRoutes.add(simplifiedRoute);
-
-            response.put("routes", simplifiedRoutes);
-
+            return Double.parseDouble(String.valueOf(o));
         } catch (Exception e) {
-            response.put("routes", simplifiedRoutes);
-            response.put("error", "Failed to parse own API routing data: " + e.getMessage());
+            return 0.0;
         }
+    }
 
-        return response;
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> cast(Object o) {
+        return (o instanceof Map) ? (Map<String, Object>) o : null;
+    }
+
+    // Convertit [ [lat,lon], ... ] -> [ [lon,lat], ... ]
+    private static List<List<Double>> toLonLat(List<List<Double>> latLon) {
+        List<List<Double>> out = new ArrayList<>(latLon.size());
+        for (List<Double> p : latLon) {
+            if (p.size() >= 2)
+                out.add(List.of(p.get(1), p.get(0)));
+        }
+        return out;
     }
 
     private List<List<Double>> decodePolyline(String encoded, int precision) {
@@ -231,19 +412,8 @@ public class RoutingService {
             long dlng = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
             lng += dlng;
 
-            List<Double> pair = new ArrayList<>(2);
-            pair.add(lat / (double) factor);
-            pair.add(lng / (double) factor);
-            latLngList.add(pair);
+            latLngList.add(List.of(lat / (double) factor, lng / (double) factor));
         }
         return latLngList;
-    }
-
-    public static void main(String[] args) {
-        RoutingService service = new RoutingService();
-        Map<String, Object> route = service.calculateWeatherAwareRoute(
-            48.8566, 2.3522, 48.77602916990935, 2.463881751424904, null);
-
-        System.out.println(route);
     }
 }
