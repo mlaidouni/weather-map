@@ -55,6 +55,8 @@ interface MapProps {
 	vehicleLocation?: LatLngExpression | null;
 	areaPrevisionRoute?: AreaPrevisionRoute[];
 	onMapClick: (e: any) => void;
+	onStartPinMove?: (latlng: L.LatLng) => void;
+	onEndPinMove?: (latlng: L.LatLng) => void;
 }
 
 interface MapSettingsUpdaterProps {
@@ -130,6 +132,8 @@ const MapCard: React.FC<MapProps> = ({
 	vehicleLocation = null,
 	areaPrevisionRoute = [],
 	onMapClick,
+	onStartPinMove,
+	onEndPinMove,
 }) => {
 	return (
 		<div className="map-container w-full h-screen">
@@ -155,7 +159,7 @@ const MapCard: React.FC<MapProps> = ({
 						opacity={1.0}
 					/>
 				)}
-				
+
 				{showRainLayer && (
 					<TileLayer
 						url={`https://tile.openweathermap.org/map/precipitation_new/{z}/{x}/{y}.png?appid=${apikey}`}
@@ -229,7 +233,16 @@ const MapCard: React.FC<MapProps> = ({
 
 				{/* Afficher le point de départ s'il existe */}
 				{startPin && (
-					<Marker position={startPin} icon={startIcon}>
+					<Marker
+						position={startPin}
+						icon={startIcon}
+						draggable={true}
+						eventHandlers={{
+							dragend: (e) => {
+								onStartPinMove?.(e.target.getLatLng());
+							},
+						}}
+					>
 						<Popup>
 							Point de départ<br />
 							Position: {(startPin as [number, number])[0].toFixed(5)}, {(startPin as [number, number])[1].toFixed(5)}
@@ -239,7 +252,16 @@ const MapCard: React.FC<MapProps> = ({
 
 				{/* Afficher le point d'arrivée s'il existe */}
 				{endPin && (
-					<Marker position={endPin} icon={endIcon}>
+					<Marker
+						position={endPin}
+						icon={endIcon}
+						draggable={true}
+						eventHandlers={{
+							dragend: (e) => {
+								onEndPinMove?.(e.target.getLatLng());
+							},
+						}}
+					>
 						<Popup>
 							Point d'arrivée<br />
 							Position: {(endPin as [number, number])[0].toFixed(5)}, {(endPin as [number, number])[1].toFixed(5)}

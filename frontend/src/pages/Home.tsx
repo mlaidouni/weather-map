@@ -784,7 +784,7 @@ const Home: React.FC = () => {
 									{/* Affichage de la distance s'il y a un chemin */}
 									{routes.length > 0 && routes[0] && (
 										<RouteInfoCard distance={distance} duration={duration} />
-									)} 
+									)}
 
 									{/* Affichage conditionnel */}
 									{selectedMeteoView === "start" &&
@@ -1004,6 +1004,20 @@ const Home: React.FC = () => {
 				vehicleLocation={vehicleLocation}
 				areaPrevisionRoute={areaPrevisionRoute}
 				onMapClick={handleMapClick}
+				onStartPinMove={(latlng) => {
+					setStartLocation({
+						latitude: latlng.lat,
+						longitude: latlng.lng,
+						// name: `${latlng.lat.toFixed(5)}, ${latlng.lng.toFixed(5)}`
+					});
+				}}
+				onEndPinMove={(latlng) => {
+					setEndLocation({
+						latitude: latlng.lat,
+						longitude: latlng.lng,
+						// name: `${latlng.lat.toFixed(5)}, ${latlng.lng.toFixed(5)}`
+					});
+				}}
 			/>
 		);
 	}
