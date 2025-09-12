@@ -145,7 +145,7 @@ const Home: React.FC = () => {
 	const [sliderValue, setSliderValue] = useState(0);
 
 	//Variable pour les points d'intérêt
-	const [interestPoint,setInterestPoint] = useState<InterestPoint[]>([]);
+	const [interestPoint, setInterestPoint] = useState<InterestPoint[]>([]);
 	const [printInterestPoint, setPrintInterestPoint] = useState(false);
 
 	// SideBar
@@ -432,10 +432,10 @@ const Home: React.FC = () => {
 	const fetchInterestPoints = async (lat_list: number[], lng_list: number[]) => {
 		console.log("Récupération des points d'intérêt...");
 		const dataInterestPoint = await fetchInterestPoint(lat_list, lng_list);
-		const dataInterestList : InterestPoint[] = [];
+		const dataInterestList: InterestPoint[] = [];
 		console.log(dataInterestPoint);
 		if (dataInterestPoint) {
-			if(dataInterestPoint.toilets.length > 0){
+			if (dataInterestPoint.toilets.length > 0) {
 				dataInterestPoint.toilets.forEach((point: any) => {
 					dataInterestList.push({
 						name: point.name == "Inconnu" ? "WC" : point.name,
@@ -445,7 +445,7 @@ const Home: React.FC = () => {
 					});
 				});
 			}
-			if(dataInterestPoint.restaurant.length > 0){
+			if (dataInterestPoint.restaurant.length > 0) {
 				dataInterestPoint.restaurant.forEach((point: any) => {
 					dataInterestList.push({
 						name: point.name == "Inconnu" ? "Restaurant" : point.name,
@@ -455,7 +455,7 @@ const Home: React.FC = () => {
 					});
 				});
 			}
-			if(dataInterestPoint.supermarket.length > 0){
+			if (dataInterestPoint.supermarket.length > 0) {
 				dataInterestPoint.supermarket.forEach((point: any) => {
 					dataInterestList.push({
 						name: point.name == "Inconnu" ? "SuperMarché" : point.name,
@@ -633,7 +633,6 @@ const Home: React.FC = () => {
 	useEffect(() => {
 		// Ne lancer que si les coords existent et qu'on n'a pas déjà des points
 		if (!endLocation?.latitude || !endLocation?.longitude || !startLocation) return;
-		if (interestPoint.length > 0) return;
 		if (fetchingInterestRef.current) return;
 
 		fetchingInterestRef.current = true;
@@ -652,8 +651,8 @@ const Home: React.FC = () => {
 			}
 		})();
 
-	// dépend uniquement des coordonnées pour éviter les reruns quand on ajoute meteo à l'objet
-	}, [endLocation?.latitude, endLocation?.longitude, startLocation?.latitude, startLocation?.longitude, interestPoint.length]);
+		// dépend uniquement des coordonnées pour éviter les reruns quand on ajoute meteo à l'objet
+	}, [endLocation?.latitude, endLocation?.longitude]);
 
 	useEffect(() => {
 		if (endLocation) {
@@ -1116,16 +1115,16 @@ const Home: React.FC = () => {
 								checked={dynamicMode}
 								onCheckedChange={(checked) => { setDynamicMode(!!checked); }} />
 							<Label>Mode prévisionnel</Label>
-					</div>
-					<div className="flex items-center gap-2 p-2">
+						</div>
+						<div className="flex items-center gap-2 p-2">
 							<Checkbox
-							disabled={!endLocation}
-							onCheckedChange={(checked) => {
-								setPrintInterestPoint(checked);
-							}} />
-						<Label>Afficher les points d'intéret de la destination</Label>
+								disabled={!endLocation}
+								onCheckedChange={(checked) => {
+									setPrintInterestPoint(checked);
+								}} />
+							<Label>Afficher les points d'intéret de la destination</Label>
 
-					</div>
+						</div>
 						<Button
 							disabled={!startLocation || !endLocation || routeLoading}
 							onClick={fetchRoute}
