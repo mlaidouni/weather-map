@@ -80,6 +80,8 @@ const Home: React.FC = () => {
   const [routeError, setRouteError] = useState<string | null>(null);
   const [areas, setAreas] = useState<Area[]>([]);
   const [routeSearch, setRouteSearch] = useState(false);
+  const [duration, setDuration] = useState(0);
+  const [distance, setDistance] = useState(0);
 
   //Zone de pluie en fonction de l'itinéraire
   const [areaPrevisionRoute, setAreaPrevisionRoute] = useState<
@@ -126,12 +128,12 @@ const Home: React.FC = () => {
     setAreaPrevisionRoute([]);
     setVehicleLocation(null);
 
-	setQueryStart("");
-	setQueryEnd("");
-	setShowSuggestionStart(false);
-	setShowSuggestionEnd(false);
-	setIsRouteSearchBarOpen(false);
-	setSliderValue(0);
+    setQueryStart("");
+    setQueryEnd("");
+    setShowSuggestionStart(false);
+    setShowSuggestionEnd(false);
+    setIsRouteSearchBarOpen(false);
+    setSliderValue(0);
   };
 
   // Appel au backend pour calculer l'itinéraire
@@ -207,6 +209,8 @@ const Home: React.FC = () => {
         endLatLng,
         signal
       );
+      setDuration(data.duration);
+      setDistance(data.distance);
 
       // If there is an error, show a popup
       if (data.error) {
@@ -724,6 +728,10 @@ const Home: React.FC = () => {
             <>
               {startLocation && endLocation ? (
                 <>
+                  <div>
+                    <div>{distance}</div>
+                    <div>{duration}</div>
+                  </div>
                   {/* Toggle de sélection */}
                   <div className="flex justify-center gap-2 my-3">
                     <Button
