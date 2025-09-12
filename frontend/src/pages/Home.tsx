@@ -1102,20 +1102,26 @@ const Home: React.FC = () => {
 				vehicleLocation={vehicleLocation}
 				areaPrevisionRoute={areaPrevisionRoute}
 				onMapClick={handleMapClick}
-				onStartPinMove={(latlng) => {
-					setStartLocation({
-						latitude: latlng.lat,
-						longitude: latlng.lng,
-						// name: `${latlng.lat.toFixed(5)}, ${latlng.lng.toFixed(5)}`
-					});
-				}}
-				onEndPinMove={(latlng) => {
-					setEndLocation({
-						latitude: latlng.lat,
-						longitude: latlng.lng,
-						// name: `${latlng.lat.toFixed(5)}, ${latlng.lng.toFixed(5)}`
-					});
-				}}
+onStartPinMove={(latlng) => {
+	const newName = `${latlng.lat.toFixed(5)}, ${latlng.lng.toFixed(5)}`;
+	setStartLocation({
+		latitude: latlng.lat,
+		longitude: latlng.lng,
+		name: newName
+	});
+	setQueryStart(newName); // <-- mise à jour de la searchbar
+}}
+
+onEndPinMove={(latlng) => {
+	const newName = `${latlng.lat.toFixed(5)}, ${latlng.lng.toFixed(5)}`;
+	setEndLocation({
+		latitude: latlng.lat,
+		longitude: latlng.lng,
+		name: newName
+	});
+	setQueryEnd(newName); // <-- mise à jour de la searchbar
+}}
+
 			/>
 		);
 	}
