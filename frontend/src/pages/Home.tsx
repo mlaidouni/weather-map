@@ -93,9 +93,11 @@ const Home: React.FC = () => {
 	// Sheet
 	const [isSideBarOpen, setIsSideBarOpen] = useState(false);
 
-	// Météo
-	const [meteoLoading, setMeteoLoading] = useState(false);
-	const [meteoError, setMeteoError] = useState<string | null>(null);
+	// Météo (loading/error séparés pour start/end)
+	const [meteoLoadingStart, setMeteoLoadingStart] = useState(false);
+	const [meteoErrorStart, setMeteoErrorStart] = useState<string | null>(null);
+	const [meteoLoadingEnd, setMeteoLoadingEnd] = useState(false);
+	const [meteoErrorEnd, setMeteoErrorEnd] = useState<string | null>(null);
 	const [selectedMeteoView, setSelectedMeteoView] = useState<"start" | "end">(
 		"start"
 	);
@@ -327,7 +329,9 @@ const Home: React.FC = () => {
 	// Mis à jour de la météo quand la localisation change
 	const fetchMeteo = async (
 		loc: LocationData,
-		setLoc: React.Dispatch<React.SetStateAction<LocationData | null>>
+		setLoc: React.Dispatch<React.SetStateAction<LocationData | null>>,
+		setLoading: React.Dispatch<React.SetStateAction<boolean>>,
+		setError: React.Dispatch<React.SetStateAction<string | null>>
 	) => {
 		// Abort any previous meteo request
 		if (meteoAbortControllerRef.current) {
@@ -340,8 +344,8 @@ const Home: React.FC = () => {
 
 		try {
 			setLoc((prev) => (prev ? { ...prev, meteo: undefined } : prev));
-			setMeteoError(null);
-			setMeteoLoading(true);
+			setError(null);
+			setLoading(true);
 
 			const data: MeteoData = await fetchMeteoFromLocation(
 				loc.latitude,
@@ -354,7 +358,7 @@ const Home: React.FC = () => {
 			// Don't show error if the request was aborted
 			if (e.name !== "AbortError") {
 				console.error(e);
-				setMeteoError("Impossible de récupérer la météo.");
+				setError("Impossible de récupérer la météo.");
 			}
 		} finally {
 			// Only clear loading state if this is still the current request
@@ -362,7 +366,7 @@ const Home: React.FC = () => {
 				meteoAbortControllerRef.current &&
 				meteoAbortControllerRef.current.signal === signal
 			) {
-				setMeteoLoading(false);
+				setLoading(false);
 			}
 		}
 	};
@@ -505,8 +509,9 @@ const Home: React.FC = () => {
 
 	// Meteo effects
 	useEffect(() => {
-		if (startLocation) fetchMeteo(startLocation, setStartLocation);
-		else {
+		if (startLocation) {
+			fetchMeteo(startLocation, setStartLocation, setMeteoLoadingStart, setMeteoErrorStart);
+		} else {
 			// Abort any ongoing requests if the location is cleared
 			if (meteoAbortControllerRef.current) {
 				meteoAbortControllerRef.current.abort();
@@ -523,8 +528,9 @@ const Home: React.FC = () => {
 	}, [startLocation?.latitude, startLocation?.longitude]);
 
 	useEffect(() => {
-		if (endLocation) fetchMeteo(endLocation, setEndLocation);
-		else {
+		if (endLocation) {
+			fetchMeteo(endLocation, setEndLocation, setMeteoLoadingEnd, setMeteoErrorEnd);
+		} else {
 			// Abort any ongoing requests if the location is cleared
 			if (meteoAbortControllerRef.current) {
 				meteoAbortControllerRef.current.abort();
@@ -645,7 +651,11 @@ const Home: React.FC = () => {
 		);
 	}
 
-	function meteoComponentFor(location: LocationData | null) {
+	function meteoComponentFor(
+		location: LocationData | null,
+		meteoLoading: boolean,
+		meteoError: string | null
+	) {
 		return (
 			<div className="mt-6 space-y-3">
 				{/* Meteo Info Header */}
@@ -798,13 +808,13 @@ const Home: React.FC = () => {
 
 									{/* Affichage conditionnel */}
 									{selectedMeteoView === "start" &&
-										meteoComponentFor(startLocation)}
+										meteoComponentFor(startLocation, meteoLoadingStart, meteoErrorStart)}
 									{selectedMeteoView === "end" &&
-										meteoComponentFor(endLocation)}
+										meteoComponentFor(endLocation, meteoLoadingEnd, meteoErrorEnd)}
 								</>
 							) : (
 								// Sinon, seulement la météo du départ
-								meteoComponentFor(startLocation)
+								meteoComponentFor(startLocation, meteoLoadingStart, meteoErrorStart)
 							)}
 						</>
 					}
