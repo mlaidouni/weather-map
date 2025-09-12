@@ -99,25 +99,63 @@ public class WeatherController {
 		}
 	}
 
-    @GetMapping("/rain/zone")
-    public Map<String, Object> getRainZone(
-        @RequestParam double startLat,
-        @RequestParam double startLng,
-        @RequestParam double endLat,
-        @RequestParam double endLng
-    ) {
-        Map<String, Object> response = new HashMap<>();
-        Map<String, Double> expandedArea = AreaUtils.expandedArea(startLat, startLng, endLat, endLng);
-        List<List<List<Double>>> polygonsLonLat;
-        try {
-            polygonsLonLat = rainService.fetchRainPolygons(expandedArea.get("latMax"), expandedArea.get("lonMin"), expandedArea.get("latMin"), expandedArea.get("lonMax"), TimeMode.OLDEST_PAST, true);
-        } catch (Exception e) {
-            response.put("error", "Failed to fetch rain polygons: " + e.getMessage());
-            return response;
-        }
-        response.put("polygons", AreaUtils.reverseLonLat(polygonsLonLat));
-        return response;
-    }
+	@GetMapping("/rain/zone")
+	public Map<String, Object> getRainZone(
+			@RequestParam double startLat,
+			@RequestParam double startLng,
+			@RequestParam double endLat,
+			@RequestParam double endLng) {
+		Map<String, Object> response = new HashMap<>();
+		Map<String, Double> expandedArea = AreaUtils.expandedArea(startLat, startLng, endLat, endLng);
+		List<List<List<Double>>> polygonsLonLat;
+		try {
+			polygonsLonLat = rainService.fetchRainPolygons(expandedArea.get("latMax"), expandedArea.get("lonMin"),
+					expandedArea.get("latMin"), expandedArea.get("lonMax"), TimeMode.OLDEST_PAST, true);
+		} catch (Exception e) {
+			response.put("error", "Failed to fetch rain polygons: " + e.getMessage());
+			return response;
+		}
+		response.put("polygons", AreaUtils.reverseLonLat(polygonsLonLat));
+		return response;
+	}
+
+	@GetMapping("/forecast/12h")
+	public Map<String, Object> getNext12HoursForecast(
+			@RequestParam double lat,
+			@RequestParam double lng) {
+
+		// On demande à l'API Open-Meteo les prévisions horaires
+		String url = "https://api.open-meteo.com/v1/forecast"
+				+ "?latitude=" + lat
+				+ "&longitude=" + lng
+				+ "&hourly=temperature_2m,apparent_temperature,precipitation"
+				+ "&forecast_hours=12";
+
+		Map response = restTemplate.getForObject(url, Map.class);
+
+		Map<String, Object> result = new HashMap<>();
+		result.put("latitude", lat);
+		result.put("longitude", lng);
+
+		if (response != null && response.containsKey("hourly") && response.containsKey("hourly_units")) {
+			Map hourly = (Map) response.get("hourly");
+			Map hourly_units = (Map) response.get("hourly_units");
+
+
+			// On récupère seulement les heures, températures et précipitations
+			result.put("time", hourly.get("time"));
+			result.put("temperature", hourly.get("temperature_2m"));
+			result.put("temperature_unit", hourly_units.get("temperature_2m"));
+			result.put("apparennt_temperature", hourly.get("apparent_temperature"));
+			result.put("precipitation", hourly.get("precipitation"));
+			result.put("precipitation_unit", hourly_units.get("precipitation"));
+		} else {
+			result.put("error", "Impossible de lire la réponse de l'API");
+		}
+
+		return result;
+	}
+
 
 	@GetMapping(value = "/rain/tile/oldest/{z}/{x}/{y}.png", produces = MediaType.IMAGE_PNG_VALUE)
     public ResponseEntity<byte[]> getOldestPastRainTile(

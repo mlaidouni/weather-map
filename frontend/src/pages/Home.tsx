@@ -1,4 +1,32 @@
 import React, { useEffect, useState } from "react";
+// Drawer and Chart imports
+import {
+	Drawer,
+	DrawerContent,
+	DrawerHeader,
+	DrawerTitle,
+} from "@/components/ui/drawer";
+import { Line } from "react-chartjs-2";
+import {
+	Chart as ChartJS,
+	CategoryScale,
+	LinearScale,
+	PointElement,
+	LineElement,
+	Title as ChartTitle,
+	Tooltip,
+	Legend,
+} from "chart.js";
+
+ChartJS.register(
+	CategoryScale,
+	LinearScale,
+	PointElement,
+	LineElement,
+	ChartTitle,
+	Tooltip,
+	Legend
+);
 import MapCard from "../components/card/MapCard";
 import L, { LatLngExpression } from "leaflet";
 import {
@@ -49,6 +77,28 @@ import { useRef } from "react";
 
 const Home: React.FC = () => {
 	/// ---- États ----
+	// Drawer/Forecast state
+	const [selectedMeteoKey, setSelectedMeteoKey] = useState<string | null>(null);
+	const [forecastData, setForecastData] = useState<any>(null);
+	const [forecastLoading, setForecastLoading] = useState(false);
+	const [forecastError, setForecastError] = useState<string | null>(null);
+	const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+	// Fetch 12h forecast for a given lat/lng
+	const fetchForecast = async (lat: number, lng: number) => {
+		setForecastLoading(true);
+		setForecastError(null);
+		setForecastData(null);
+		try {
+			const res = await fetch(`/api/weather/forecast/12h?lat=${lat}&lng=${lng}`);
+			const data = await res.json();
+			if (data.error) throw new Error(data.error);
+			setForecastData(data);
+		} catch (e: any) {
+			setForecastError(e.message || "Erreur lors de la récupération des prévisions.");
+		} finally {
+			setForecastLoading(false);
+		}
+	};
 	// Map
 	const [center, setCenter] = useState<LatLngExpression>([48.86, 2.33]);
 	const [zoom, setZoom] = useState(12);
@@ -90,7 +140,7 @@ const Home: React.FC = () => {
 	const [stepIndex, setStepIndex] = useState(0);
 	const [sliderValue, setSliderValue] = useState(0);
 
-	// Sheet
+	// SideBar
 	const [isSideBarOpen, setIsSideBarOpen] = useState(false);
 
 	// Météo (loading/error séparés pour start/end)
@@ -119,7 +169,6 @@ const Home: React.FC = () => {
 			meteoAbortControllerRef.current = null;
 		}
 
-		// FIXME: Doit gérer aussi l'affichage des barre, sheet, etc.
 		setStartLocation(null);
 		setEndLocation(null);
 		setRoutes([]);
@@ -302,7 +351,8 @@ const Home: React.FC = () => {
 				} else {
 					setRoutes([]);
 					setStepIndex(0);
-					setAreas(routeWithRainAreas.length > 0 ? routeWithRainAreas[0].rainingArea : []);
+					if (dynamicMode)
+						setAreas(routeWithRainAreas.length > 0 ? routeWithRainAreas[0].rainingArea : []);
 				}
 			} else {
 				// Réinitialiser si aucune donnée valide
@@ -365,9 +415,7 @@ const Home: React.FC = () => {
 			}
 		} finally {
 			// Only clear loading state if this is still the current request
-			// FIXME: mettre set loading
 			setLoading(false);
-
 		}
 	};
 
@@ -384,6 +432,7 @@ const Home: React.FC = () => {
 		setStartLocation(newLoc);
 		setCenter(s.coordinates as LatLngExpression);
 		setZoom(13);
+		setIsSideBarOpen(true);
 	};
 
 	//Fonction pour mettre à jour les zones de pluie
@@ -463,7 +512,7 @@ const Home: React.FC = () => {
 		setEndLocation(newLoc);
 		setCenter(s.coordinates as LatLngExpression);
 		setZoom(13);
-		setIsSideBarOpen(true); // FIXME: Utile ?
+		setIsSideBarOpen(true);
 	};
 
 	/// ---- Effets ----
@@ -637,10 +686,23 @@ const Home: React.FC = () => {
 		title: string,
 		icon: React.ReactNode,
 		data: number | undefined,
-		unit: string | undefined
+		unit: string | undefined,
+		keyName: string
 	) {
+		// Determine which location to use
+		const location =
+			selectedMeteoView === "start" ? startLocation : endLocation;
 		return (
-			<div className="rounded-2xl border p-3 ml-2 mr-2 shadow-sm flex flex-col items-center text-center">
+			<div
+				className="rounded-2xl border p-3 ml-2 mr-2 shadow-sm flex flex-col items-center text-center cursor-pointer hover:bg-muted transition"
+				onClick={() => {
+					setSelectedMeteoKey(keyName);
+					if (location) {
+						fetchForecast(location.latitude, location.longitude);
+						setIsDrawerOpen(true);
+					}
+				}}
+			>
 				{icon}
 				<div className="text-xs text-muted-foreground">{title}</div>
 				<div className="text-xl font-semibold">
@@ -706,49 +768,57 @@ const Home: React.FC = () => {
 					"Température",
 					<Thermometer className="w-5 h-5 mb-1 text-red-500" />,
 					location.meteo?.temperature,
-					location.meteo?.temperature_unit || "°C"
+					location.meteo?.temperature_unit || "°C",
+					"temperature"
 				)}
 				{meteoInfoCard(
 					"Température ressentie",
 					<Thermometer className="w-5 h-5 mb-1 text-red-500" />,
 					location.meteo?.apparent_temperature,
-					location.meteo?.apparent_temperature_unit || "°C"
+					location.meteo?.apparent_temperature_unit || "°C",
+					"apparent_temperature"
 				)}
 				{meteoInfoCard(
 					"Humidité",
 					<Droplets className="w-5 h-5 mb-1 text-cyan-500" />,
 					location.meteo?.humidity,
-					location.meteo?.humidity_unit || "%"
+					location.meteo?.humidity_unit || "%",
+					"humidity"
 				)}
 				{meteoInfoCard(
 					"Vent",
 					<Wind className="w-5 h-5 mb-1 text-gray-500" />,
 					location.meteo?.windSpeed,
-					location.meteo?.windSpeed_unit || "km/h"
+					location.meteo?.windSpeed_unit || "km/h",
+					"windSpeed"
 				)}
 				{meteoInfoCard(
 					"Pluie",
 					<CloudRainWind className="w-5 h-5 mb-1 text-blue-500" />,
 					location.meteo?.rain,
-					location.meteo?.rain_unit || "mm"
+					location.meteo?.rain_unit || "mm",
+					"rain"
 				)}
 				{meteoInfoCard(
 					"Précipitations",
 					<CloudDrizzle className="w-5 h-5 mb-1 text-blue-500" />,
 					location.meteo?.precipitation,
-					location.meteo?.precipitation_unit || "mm"
+					location.meteo?.precipitation_unit || "mm",
+					"precipitation"
 				)}
 				{meteoInfoCard(
 					"Couverture nuageuse",
 					<Cloud className="w-5 h-5 mb-1 text-sky-500" />,
 					location.meteo?.cloudCover,
-					location.meteo?.cloudCover_unit || "%"
+					location.meteo?.cloudCover_unit || "%",
+					"cloudCover"
 				)}
 				{meteoInfoCard(
 					"Visibilité",
 					<CloudFog className="w-5 h-5 mb-1 text-sky-500" />,
 					location.meteo?.visibility,
-					location.meteo?.visibility_unit || "m"
+					location.meteo?.visibility_unit || "m",
+					"visibility"
 				)}
 			</>
 		);
@@ -850,7 +920,7 @@ const Home: React.FC = () => {
 							{/* Slider au centre en bas */}
 							<div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-30 w-[30%] flex justify-center">
 								<Slider
-									disabled={!routes || routes.length === 0 || routes[0].coordinates.length === 0}
+									// disabled={!routes || routes.length === 0 || routes[0].coordinates.length === 0}
 									className="absolute bottom-5 left-1/2 -translate-x-1/2 w-[30%] z-10"
 									value={[sliderValue]}
 									onValueChange={(values) => {
@@ -861,8 +931,10 @@ const Home: React.FC = () => {
 											updateVehiclePosition(newValue);
 										} else {
 											// Mode "aucune route": slider -> sélection de la frame pluie
-											const idx = computeRainStepFromSlider(newValue);
-											setStepIndex(idx); // useEffect mettra à jour areas via updateRainingAreas
+											if (dynamicMode) {
+												const idx = computeRainStepFromSlider(newValue);
+												setStepIndex(idx); // useEffect mettra à jour areas via updateRainingAreas
+											}
 										}
 									}}
 									max={100}
@@ -902,7 +974,6 @@ const Home: React.FC = () => {
 						onValueChange={setQueryStart}
 					/>
 
-					{/* FIXME: Les suggestions devraient se masquer quand on sélectionne une suggestion */}
 					{showSuggestionStart && queryStart && (
 						<CommandList>
 							<CommandGroup heading="Suggestions">
@@ -930,7 +1001,6 @@ const Home: React.FC = () => {
 							onValueChange={setQueryEnd}
 						/>
 
-						{/* FIXME: Les suggestions devraient se masquer quand on sélectionne une suggestion */}
 						{showSuggestionEnd && queryEnd && (
 							<CommandList>
 								<CommandGroup heading="Suggestions">
@@ -1032,20 +1102,26 @@ const Home: React.FC = () => {
 				vehicleLocation={vehicleLocation}
 				areaPrevisionRoute={areaPrevisionRoute}
 				onMapClick={handleMapClick}
-				onStartPinMove={(latlng) => {
-					setStartLocation({
-						latitude: latlng.lat,
-						longitude: latlng.lng,
-						// name: `${latlng.lat.toFixed(5)}, ${latlng.lng.toFixed(5)}`
-					});
-				}}
-				onEndPinMove={(latlng) => {
-					setEndLocation({
-						latitude: latlng.lat,
-						longitude: latlng.lng,
-						// name: `${latlng.lat.toFixed(5)}, ${latlng.lng.toFixed(5)}`
-					});
-				}}
+onStartPinMove={(latlng) => {
+	const newName = `${latlng.lat.toFixed(5)}, ${latlng.lng.toFixed(5)}`;
+	setStartLocation({
+		latitude: latlng.lat,
+		longitude: latlng.lng,
+		name: newName
+	});
+	setQueryStart(newName); // <-- mise à jour de la searchbar
+}}
+
+onEndPinMove={(latlng) => {
+	const newName = `${latlng.lat.toFixed(5)}, ${latlng.lng.toFixed(5)}`;
+	setEndLocation({
+		latitude: latlng.lat,
+		longitude: latlng.lng,
+		name: newName
+	});
+	setQueryEnd(newName); // <-- mise à jour de la searchbar
+}}
+
 			/>
 		);
 	}
@@ -1055,6 +1131,55 @@ const Home: React.FC = () => {
 		<div className="relative w-full h-full">
 			{/* Sidebar informations */}
 			{sideBar()}
+			{/* Drawer for forecast charts */}
+			<Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
+				<DrawerContent>
+					<DrawerHeader>
+						<DrawerTitle>
+							Prévisions : {selectedMeteoKey}
+						</DrawerTitle>
+					</DrawerHeader>
+					<div className="p-4">
+						{forecastLoading && (
+							<div className="flex items-center gap-2 text-muted-foreground">
+								<Loader2 className="w-4 h-4 animate-spin" />
+								Chargement des prévisions…
+							</div>
+						)}
+						{forecastError && (
+							<div className="text-sm text-red-600 p-2 rounded-md border border-red-200 bg-red-50">
+								<CircleX className="inline-block mr-1 mb-1 text-red-500" />
+								{forecastError}
+							</div>
+						)}
+						{forecastData && selectedMeteoKey && forecastData.time && forecastData[selectedMeteoKey] && (
+							<Line
+								data={{
+									labels: forecastData.time,
+									datasets: [
+										{
+											label: selectedMeteoKey,
+											data: forecastData[selectedMeteoKey],
+											borderColor: "rgb(59,130,246)",
+											backgroundColor: "rgba(59,130,246,0.2)",
+										},
+									],
+								}}
+								options={{
+									responsive: true,
+									plugins: {
+										legend: { display: true },
+										title: { display: false },
+									},
+								}}
+							/>
+						)}
+						{forecastData && selectedMeteoKey && (!forecastData[selectedMeteoKey] || !forecastData.time) && (
+							<div className="text-sm text-muted-foreground">Aucune donnée prévisionnelle disponible.</div>
+						)}
+					</div>
+				</DrawerContent>
+			</Drawer>
 		</div>
 	);
 };
