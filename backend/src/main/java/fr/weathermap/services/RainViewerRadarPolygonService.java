@@ -469,6 +469,37 @@ public class RainViewerRadarPolygonService {
         );
     }
 
+    /* ==================== API TILES PNG ==================== */
+
+        /**
+     * Récupère une tuile PNG (oldest past frame) brute depuis RainViewer.
+     * Paramètres optionnels avec valeurs par défaut : tileSize=256, colorScheme=2, smooth=1, snow=1.
+     */
+    public byte[] fetchOldestPastTile(int z, int x, int y,
+                                      Integer tileSize,
+                                      Integer colorScheme,
+                                      Integer smooth,
+                                      Integer snow) throws IOException, InterruptedException {
+        RainViewerCatalog.Catalog cat = catalog.fetch();
+        if (cat.past == null || cat.past.isEmpty()) return null;
+
+        RainViewerCatalog.Frame frame = cat.past.get(0); // oldest past
+        int ts = (tileSize != null) ? tileSize : 256;
+        int cs = (colorScheme != null) ? colorScheme : 2;
+        int sm = (smooth != null) ? smooth : 1;
+        int sn = (snow != null) ? snow : 1;
+
+        String url = catalog.buildTileUrl(cat.host, frame, z, x, y, ts, cs, sm, sn, "png");
+        HttpRequest req = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .timeout(java.time.Duration.ofSeconds(5))
+                .GET()
+                .build();
+        HttpResponse<byte[]> resp = http.send(req, HttpResponse.BodyHandlers.ofByteArray());
+        if (resp.statusCode() != 200) return null;
+        return resp.body();
+    }
+
     /* ==================== DEMO MAIN ==================== */
 
     public static void main(String[] args) {
