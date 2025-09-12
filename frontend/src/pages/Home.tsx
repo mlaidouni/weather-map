@@ -1121,6 +1121,8 @@ const Home: React.FC = () => {
 								disabled={!endLocation}
 								onCheckedChange={(checked) => {
 									setPrintInterestPoint(checked);
+
+									if (checked) { setCenter([endLocation?.latitude, endLocation?.longitude] as LatLngExpression); setZoom(15); }
 								}} />
 							<Label>Afficher les points d'intéret de la destination</Label>
 

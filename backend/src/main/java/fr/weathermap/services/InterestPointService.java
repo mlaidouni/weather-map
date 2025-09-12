@@ -13,7 +13,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class InterestPointService {
 
-    private static final int MAX_RESULTS = 3;
+    private static final int MAX_RESULTS = 10;
 
     public enum PointOfInterestType {
         RESTAURANT("amenity", "restaurant"),
