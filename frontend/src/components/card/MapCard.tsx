@@ -167,9 +167,9 @@ const MapCard: React.FC<MapProps> = ({
 
 				{showRainLayer && (
 					<TileLayer
-						url={`https://tile.openweathermap.org/map/precipitation_new/{z}/{x}/{y}.png?appid=${apikey}`}
-						attribution="&copy; OpenWeatherMap"
-						opacity={1.0}
+						url={`/api/weather/rain/tile/oldest/{z}/{x}/{y}.png`}
+						attribution="&copy; RainViewer"
+						opacity={0.6}
 					/>
 				)}
 

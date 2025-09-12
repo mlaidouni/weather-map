@@ -1,6 +1,10 @@
 package fr.weathermap.controllers;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.CacheControl;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
@@ -152,4 +156,27 @@ public class WeatherController {
 		return result;
 	}
 
+
+	@GetMapping(value = "/rain/tile/oldest/{z}/{x}/{y}.png", produces = MediaType.IMAGE_PNG_VALUE)
+    public ResponseEntity<byte[]> getOldestPastRainTile(
+            @PathVariable int z,
+            @PathVariable int x,
+            @PathVariable int y,
+            @RequestParam(required = false) Integer tileSize,
+            @RequestParam(required = false) Integer colorScheme,
+            @RequestParam(required = false) Integer smooth,
+            @RequestParam(required = false) Integer snow) {
+
+        try {
+            byte[] data = rainService.fetchOldestPastTile(z, x, y, tileSize, colorScheme, smooth, snow);
+            if (data == null) {
+                return ResponseEntity.status(404).build();
+            }
+            HttpHeaders headers = new HttpHeaders();
+            headers.setCacheControl(CacheControl.maxAge(java.time.Duration.ofMinutes(5)).cachePublic());
+            return new ResponseEntity<>(data, headers, HttpStatus.OK);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).build();
+        }
+    }
 }
