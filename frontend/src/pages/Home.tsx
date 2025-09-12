@@ -21,6 +21,8 @@ import {
   TriangleAlert,
   Loader2,
   CircleX,
+  Route,
+  Clock
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import MapFilterCard from "@/components/card/MapFilterCard";
@@ -573,6 +575,28 @@ const Home: React.FC = () => {
 
   /// ---- Rendu ----
 
+  function formatDuration(minutes: number) {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h > 0) return `${h}h ${m}min`;
+  return `${m}min`;
+}
+function RouteInfoCard({ distance, duration }: { distance: number; duration: number }) {
+  return (
+    <div className="rounded-2xl border p-4 shadow-sm grid grid-cols-2 gap-4 text-center">
+      <div className="flex flex-col items-center">
+        <Route className="w-5 h-5 mb-1 text-blue-500" />
+        <div className="text-xs text-muted-foreground">Distance</div>
+        <div className="text-lg font-semibold">{(distance / 1000).toFixed(1)} km</div>
+      </div>
+      <div className="flex flex-col items-center">
+        <Clock className="w-5 h-5 mb-1 text-green-500" />
+        <div className="text-xs text-muted-foreground">Durée</div>
+        <div className="text-lg font-semibold">{formatDuration(Math.round(duration / 60))}</div>
+      </div>
+    </div>
+  );
+}
   function sideBarHeader(location: LocationData | null) {
     return (
       <div className="mb-2">
@@ -723,15 +747,11 @@ const Home: React.FC = () => {
             selectedMeteoView == "start" && startLocation
               ? startLocation
               : endLocation
-          )}
+          )}	
           content={
             <>
               {startLocation && endLocation ? (
-                <>
-                  <div>
-                    <div>{distance}</div>
-                    <div>{duration}</div>
-                  </div>
+  <>
                   {/* Toggle de sélection */}
                   <div className="flex justify-center gap-2 my-3">
                     <Button
@@ -752,7 +772,9 @@ const Home: React.FC = () => {
                     >
                       Arrivée
                     </Button>
+                    
                   </div>
+                  <RouteInfoCard distance={distance} duration={duration} />
 
                   {/* Affichage conditionnel */}
                   {selectedMeteoView === "start" &&
