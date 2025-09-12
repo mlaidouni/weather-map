@@ -1,0 +1,63 @@
+stages:
+  - build
+  - deploy
+
+variables:
+  DEPLOY_USER: "ubuntu" # utilisateur SSH sur le VPS
+  DEPLOY_HOST: "37.187.49.205" # IP ou domaine du VPS
+  DEPLOY_PATH: "/home/ubuntu/weathermap" # chemin sur le VPS pour copier/build
+
+# Build Front
+build_front:
+  image: node:20-alpine
+  stage: build
+  script:
+    - cd frontend
+    - npm install
+    - npm run build
+  tags:
+    - weather-ci
+
+# Build Back
+build_back:
+  image: maven:3.9.9-amazoncorretto-17-alpine
+  stage: build
+  script:
+    - cd backend
+    - mvn package
+  tags:
+    - weather-ci
+
+# Deploy sur le VPS via SSH
+deploy:
+  stage: deploy
+  image: alpine:latest
+  services:
+    - docker:dind
+  before_script:
+    - apk add --no-cache openssh-client
+    - mkdir -p ~/.ssh
+    - echo -e "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    - ssh-keyscan $DEPLOY_HOST >> ~/.ssh/known_hosts
+  script:
+    # Crée les dossiers sur le VPS
+    - ssh $DEPLOY_USER@$DEPLOY_HOST "mkdir -p $DEPLOY_PATH/frontend $DEPLOY_PATH/backend"
+
+    # Copie les sources sur le VPS
+    - scp -r frontend/* $DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/frontend
+    - scp -r backend/* $DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/backend
+
+    # Build et run Docker sur le VPS
+    - ssh $DEPLOY_USER@$DEPLOY_HOST "docker build -t weathermap-frontend $DEPLOY_PATH/frontend" #FRONT
+    - ssh $DEPLOY_USER@$DEPLOY_HOST "docker stop weathermap-frontend || true && docker rm weathermap-frontend || true && docker run -d --name weathermap-frontend -p 3000:3000 --restart unless-stopped weathermap-frontend"
+
+    - ssh $DEPLOY_USER@$DEPLOY_HOST "docker build -t weathermap-backend $DEPLOY_PATH/backend" # BACK
+    - ssh $DEPLOY_USER@$DEPLOY_HOST "docker stop weathermap-backend || true && docker rm weathermap-backend || true && docker run -d --name weathermap-backend -p 8080:8080 --restart unless-stopped weathermap-backend" # BACK
+  needs:
+    - build_front
+    - build_back
+  tags:
+    - weather-ci
+  only:
+    - dev

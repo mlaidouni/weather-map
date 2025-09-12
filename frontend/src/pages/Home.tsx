@@ -1,0 +1,1286 @@
+import React, { use, useEffect, useState } from "react";
+// Drawer and Chart imports
+import {
+	Drawer,
+	DrawerContent,
+	DrawerHeader,
+	DrawerTitle,
+} from "@/components/ui/drawer";
+import { Bar } from "react-chartjs-2";
+import {
+	Chart as ChartJS,
+	CategoryScale,
+	LinearScale,
+	PointElement,
+	LineElement,
+	BarElement,
+	Title as ChartTitle,
+	Tooltip,
+	Legend,
+} from "chart.js";
+
+ChartJS.register(
+	CategoryScale,
+	LinearScale,
+	PointElement,
+	LineElement,
+	BarElement,
+	ChartTitle,
+	Tooltip,
+	Legend
+);
+import MapCard from "../components/card/MapCard";
+import L, { LatLngExpression } from "leaflet";
+import {
+	Command,
+	CommandEmpty,
+	CommandGroup,
+	CommandInput,
+	CommandItem,
+	CommandList,
+} from "@/components/ui/command";
+import {
+	ChevronRightIcon,
+	Thermometer,
+	Droplets,
+	Wind,
+	Cloud,
+	CloudFog,
+	CloudDrizzle,
+	CloudRainWind,
+	TriangleAlert,
+	Loader2,
+	CircleX,
+	Route,
+	Clock
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import MapFilterCard from "@/components/card/MapFilterCard";
+import { useLocationSuggestions } from "../hooks/useLocationSuggestions";
+import { fetchMeteoFromLocation, fetchRainZones } from "@/api/weather";
+import { fetchRoutingWeatherAware } from "@/api/routing";
+import { LocationData } from "@/types/locationData";
+import { Suggestion } from "@/types/suggestion";
+import { Area } from "@/types/area";
+import { RouteData } from "@/types/routes";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
+import {
+	SidebarInset,
+	SidebarTrigger,
+	SidebarProvider,
+} from "@/components/ui/sidebar";
+import { Separator } from "@/components/ui/separator";
+import { AppSidebar } from "@/components/app-sidebar";
+import { AreaPrevisionRoute } from "@/types/areaPrevisionRoute";
+
+import { useRef } from "react";
+import { InterestPoint, InterestPointTypeEnum } from "@/types/interestPoint";
+import { fetchInterestPoint } from "@/api/interestpoint";
+
+const Home: React.FC = () => {
+	/// ---- États ----
+	// Drawer/Forecast state
+	const [selectedMeteoKey, setSelectedMeteoKey] = useState<string | null>(null);
+	const [forecastData, setForecastData] = useState<any>(null);
+	const [forecastLoading, setForecastLoading] = useState(false);
+	const [forecastError, setForecastError] = useState<string | null>(null);
+	const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+	// Fetch 12h forecast for a given lat/lng
+	const fetchForecast = async (lat: number, lng: number) => {
+		setForecastLoading(true);
+		setForecastError(null);
+		setForecastData(null);
+		try {
+			const res = await fetch(`/api/weather/forecast/12h?lat=${lat}&lng=${lng}`);
+			const data = await res.json();
+			if (data.error) throw new Error(data.error);
+			setForecastData(data);
+		} catch (e: any) {
+			setForecastError(e.message || "Erreur lors de la récupération des prévisions.");
+		} finally {
+			setForecastLoading(false);
+		}
+	};
+	// Map
+	const [center, setCenter] = useState<LatLngExpression>([48.86, 2.33]);
+	const [zoom, setZoom] = useState(12);
+	// Filtre de la map
+	const [isTempMapSelected, setIsTempMapSelected] = useState(0);
+	const [isRainMapSelected, setIsRainMapSelected] = useState(0);
+	const [isCloudMapSelected, setIsCloudMapSelected] = useState(0);
+	const [isWindMapSelected, setIsWindMapSelected] = useState(0);
+
+	// Recherche et Search bar
+	const [isRouteSearchBarOpen, setIsRouteSearchBarOpen] = useState(false);
+	const [queryStart, setQueryStart] = useState("");
+	const [queryEnd, setQueryEnd] = useState("");
+	const suggestionsStart = useLocationSuggestions(queryStart);
+	const suggestionsEnd = useLocationSuggestions(queryEnd);
+	const [showSuggestionStart, setShowSuggestionStart] = useState(true);
+	const [showSuggestionEnd, setShowSuggestionEnd] = useState(true);
+
+	// Localisation sélectionnée
+	const [startLocation, setStartLocation] = useState<LocationData | null>(null);
+	const [endLocation, setEndLocation] = useState<LocationData | null>(null);
+
+	// Localisation du véhicule
+	const [vehicleLocation, setVehicleLocation] = useState<LatLngExpression | null>(null);
+
+	// Itinéraire
+	const [routes, setRoutes] = useState<RouteData[]>([]);
+	const [routeLoading, setRouteLoading] = useState(false);
+	const [routeError, setRouteError] = useState<string | null>(null);
+	const [areas, setAreas] = useState<Area[]>([]);
+	const [avoidConditionRain, setAvoidConditionRain] = useState(false);
+	const [dynamicMode, setDynamicMode] = useState(false);
+	const [duration, setDuration] = useState(0);
+	const [distance, setDistance] = useState(0);
+
+	//Zone de pluie en fonction de l'itinéraire
+	const [areaPrevisionRoute, setAreaPrevisionRoute] = useState<AreaPrevisionRoute[]>([]);
+	const [indexPositionInStep, setIndexPositionInStep] = useState(0);
+	const [stepIndex, setStepIndex] = useState(0);
+	const [sliderValue, setSliderValue] = useState(0);
+
+	//Variable pour les points d'intérêt
+	const [interestPoint, setInterestPoint] = useState<InterestPoint[]>([]);
+	const [printInterestPoint, setPrintInterestPoint] = useState(false);
+
+	// SideBar
+	const [isSideBarOpen, setIsSideBarOpen] = useState(false);
+
+	// Météo (loading/error séparés pour start/end)
+	const [meteoLoadingStart, setMeteoLoadingStart] = useState(false);
+	const [meteoErrorStart, setMeteoErrorStart] = useState<string | null>(null);
+	const [meteoLoadingEnd, setMeteoLoadingEnd] = useState(false);
+	const [meteoErrorEnd, setMeteoErrorEnd] = useState<string | null>(null);
+	const [selectedMeteoView, setSelectedMeteoView] = useState<"start" | "end">(
+		"start"
+	);
+
+	// Pour annuler les appels fetch
+	const routeAbortControllerRef = useRef<AbortController | null>(null);
+	const meteoAbortControllerRef = useRef<AbortController | null>(null);
+
+	/// ---- Fonctions ----
+	// Nettoie les points sur la carte ET les données de localisation
+	const clearPoints = () => {
+		if (routeAbortControllerRef.current) {
+			routeAbortControllerRef.current.abort();
+			routeAbortControllerRef.current = null;
+		}
+
+		if (meteoAbortControllerRef.current) {
+			meteoAbortControllerRef.current.abort();
+			meteoAbortControllerRef.current = null;
+		}
+
+		setStartLocation(null);
+		setEndLocation(null);
+		setRoutes([]);
+		setAreas([]);
+		setRouteError(null);
+		setRouteLoading(false);
+		setAreaPrevisionRoute([]);
+		setVehicleLocation(null);
+
+		setQueryStart("");
+		setQueryEnd("");
+		setShowSuggestionStart(false);
+		setShowSuggestionEnd(false);
+		setIsRouteSearchBarOpen(false);
+		setSliderValue(0);
+		setInterestPoint([]);
+	};
+
+	// Appel au backend pour calculer l'itinéraire
+	const fetchRoute = async () => {
+		if (!startLocation || !endLocation) return;
+
+		// Abort any previous routing request
+		if (routeAbortControllerRef.current) {
+			routeAbortControllerRef.current.abort();
+		}
+
+		// Create a new AbortController for this routing request
+		routeAbortControllerRef.current = new AbortController();
+		const signal = routeAbortControllerRef.current.signal;
+
+		setRouteLoading(true);
+		setRouteError(null);
+
+		try {
+			// Conversion des pins en coordonnées lat/lng pour l'API
+			const startLatLng = L.latLng(
+				startLocation.latitude,
+				startLocation.longitude
+			);
+			const endLatLng = L.latLng(endLocation.latitude, endLocation.longitude);
+
+			if (avoidConditionRain) {
+				const rainingZonesMap = await fetchRainZones(
+					startLatLng,
+					endLatLng,
+					signal
+				);
+				const rainingZones = rainingZonesMap.polygons;
+
+				// raining_zones is ALWAYS: [ [ [lat,lng], [lat,lng], ... ],  ... ]
+				if (Array.isArray(rainingZones)) {
+					const polygons: Area[] = rainingZones
+						.map((poly: any) => {
+							if (!Array.isArray(poly)) return null;
+
+							const coords = poly
+								.map((pt: any) => {
+									if (Array.isArray(pt) && pt.length >= 2) {
+										const lat = Number(pt[0]);
+										const lng = Number(pt[1]);
+										if (!isNaN(lat) && !isNaN(lng))
+											return [lat, lng] as LatLngExpression;
+									}
+									return null;
+								})
+								.filter(Boolean) as LatLngExpression[];
+
+							if (!coords.length) return null;
+
+							// Optionally close polygon if not closed
+							const first = coords[0] as [number, number];
+							const last = coords[coords.length - 1] as [number, number];
+							if (first[0] !== last[0] || first[1] !== last[1]) {
+								coords.push(first);
+							}
+
+							return {
+								coordinates: coords,
+								isRaining: true,
+							} as Area;
+						})
+						.filter(Boolean) as Area[];
+
+					setAreas(polygons);
+				}
+			}
+
+			const data = await fetchRoutingWeatherAware(
+				startLatLng,
+				endLatLng,
+				signal, avoidConditionRain ? 'rain' : '', dynamicMode
+			);
+			setDuration(data.duration);
+			setDistance(data.distance);
+
+			// If there is an error, show a popup
+			if (data.error) {
+				alert("Aucun trajet n'a pu être trouvé");
+			}
+
+			if (data.steps && Array.isArray(data.steps)) {
+				const routeWithRainAreas: AreaPrevisionRoute[] = data.steps.map(
+					(step, stepIndex) => {
+						// Traiter les polygones de pluie pour ce segment
+						const rainingPolygons: Area[] = step.rain_polygons
+							.map((polygon: number[][], polyIndex: number) => {
+								if (!Array.isArray(polygon) || polygon.length === 0)
+									return null;
+
+								// Convertir les coordonnées
+								const coords = polygon
+									.map((pt: number[]) => {
+										if (Array.isArray(pt) && pt.length >= 2) {
+											const lat = Number(pt[0]);
+											const lng = Number(pt[1]);
+											if (!isNaN(lat) && !isNaN(lng))
+												return [lat, lng] as LatLngExpression;
+										}
+										return null;
+									})
+									.filter(Boolean) as LatLngExpression[];
+
+								if (coords.length === 0) return null;
+
+								// Vérifier si le polygone est fermé, sinon le fermer
+								const first = coords[0] as [number, number];
+								const last = coords[coords.length - 1] as [number, number];
+								if (first[0] !== last[0] || first[1] !== last[1]) {
+									coords.push(first);
+								}
+
+								return {
+									coordinates: coords,
+									isRaining: true,
+								} as Area;
+							})
+							.filter(Boolean) as Area[];
+
+						// Traiter le segment de route
+						const routeSegment = step.route
+							.map((coord: number[]) => {
+								if (Array.isArray(coord) && coord.length >= 2) {
+									const lat = Number(coord[0]);
+									const lng = Number(coord[1]);
+									if (!isNaN(lat) && !isNaN(lng))
+										return [lat, lng] as LatLngExpression;
+								}
+								return null;
+							})
+							.filter(Boolean) as LatLngExpression[];
+
+						// Retourner l'objet AreaPrevisionRoute pour ce segment
+						return {
+							rainingArea: rainingPolygons,
+							route: routeSegment,
+						};
+					}
+				);
+
+				// Mettre à jour l'état avec les données traitées
+				setAreaPrevisionRoute(routeWithRainAreas);
+				setVehicleLocation(startLatLng);
+
+				//Création de la route principale
+				const allCoordinates: LatLngExpression[] = [];
+				routeWithRainAreas.forEach((segment) => {
+					if (segment.route && segment.route.length > 0) {
+						allCoordinates.push(...segment.route);
+					}
+				});
+
+				if (allCoordinates.length > 0) {
+					const completeRoute: RouteData = {
+						id: 'route-main',
+						coordinates: allCoordinates,
+						distance: 0,
+						duration: 0
+					};
+					setRoutes([completeRoute]);
+				} else {
+					setRoutes([]);
+					setStepIndex(0);
+					if (dynamicMode)
+						setAreas(routeWithRainAreas.length > 0 ? routeWithRainAreas[0].rainingArea : []);
+				}
+			} else {
+				// Réinitialiser si aucune donnée valide
+				setAreaPrevisionRoute([]);
+			}
+		}
+		catch (e: any) {
+			// Don't show error if the request was aborted
+			if (e.name === 'AbortError') {
+				console.log('Request was aborted');
+			} else {
+				console.error(e);
+				setRouteError("Impossible de calculer l'itinéraire. Erreur lors du calcul de l'itinéraire : " + e.message);
+			}
+		}
+		finally {
+			// Only clear loading state if this is still the current request
+			if (routeAbortControllerRef.current && routeAbortControllerRef.current.signal === signal) {
+				setRouteLoading(false);
+			}
+		}
+	};
+
+	// Mis à jour de la météo quand la localisation change
+	const fetchMeteo = async (
+		loc: LocationData,
+		setLoc: React.Dispatch<React.SetStateAction<LocationData | null>>,
+		setLoading: React.Dispatch<React.SetStateAction<boolean>>,
+		setError: React.Dispatch<React.SetStateAction<string | null>>
+	) => {
+		// Abort any previous meteo request
+		if (meteoAbortControllerRef.current) {
+			meteoAbortControllerRef.current.abort();
+		}
+
+		// Create a new AbortController for this meteo request
+		meteoAbortControllerRef.current = new AbortController();
+		const signal = meteoAbortControllerRef.current.signal;
+
+		try {
+			setLoc((prev) => (prev ? { ...prev, meteo: undefined } : prev));
+			setError(null);
+			setLoading(true);
+
+			const data = await fetchMeteoFromLocation(
+				loc.latitude,
+				loc.longitude,
+				signal
+			);
+
+			if (data.error)
+				throw new Error(`Erreur API: ${data.error}`);
+
+			setLoc((prev) => (prev ? { ...prev, meteo: data } : prev));
+		} catch (e: any) {
+			// Don't show error if the request was aborted
+			if (e.name !== "AbortError") {
+				console.error(e);
+				setError("Impossible de récupérer la météo.");
+			}
+		} finally {
+			// Only clear loading state if this is still the current request
+			setLoading(false);
+		}
+	};
+
+	//Fonction pour récupérer les points d'intérêt
+	const fetchInterestPoints = async (lat_list: number[], lng_list: number[]) => {
+		console.log("Récupération des points d'intérêt...");
+		const dataInterestPoint = await fetchInterestPoint(lat_list, lng_list);
+		const dataInterestList: InterestPoint[] = [];
+		console.log(dataInterestPoint);
+		if (dataInterestPoint) {
+			if (dataInterestPoint.toilets.length > 0) {
+				dataInterestPoint.toilets.forEach((point: any) => {
+					dataInterestList.push({
+						name: point.name == "Inconnu" ? "WC" : point.name,
+						lat: point.lat,
+						lng: point.lon,
+						type: InterestPointTypeEnum.Toilets
+					});
+				});
+			}
+			if (dataInterestPoint.restaurant.length > 0) {
+				dataInterestPoint.restaurant.forEach((point: any) => {
+					dataInterestList.push({
+						name: point.name == "Inconnu" ? "Restaurant" : point.name,
+						lat: point.lat,
+						lng: point.lon,
+						type: InterestPointTypeEnum.Restaurant
+					});
+				});
+			}
+			if (dataInterestPoint.supermarket.length > 0) {
+				dataInterestPoint.supermarket.forEach((point: any) => {
+					dataInterestList.push({
+						name: point.name == "Inconnu" ? "SuperMarché" : point.name,
+						lat: point.lat,
+						lng: point.lon,
+						type: InterestPointTypeEnum.Supermarket
+					});
+				});
+			}
+		}
+		setInterestPoint(dataInterestList);
+	};
+
+	const onSelectSuggestionStart = async (s: Suggestion) => {
+		setQueryStart(s.label);
+		setShowSuggestionStart(false);
+
+		const newLoc: LocationData = {
+			name: s.label,
+			latitude: s.coordinates[0],
+			longitude: s.coordinates[1],
+		};
+
+		setStartLocation(newLoc);
+		setCenter(s.coordinates as LatLngExpression);
+		setZoom(13);
+		setIsSideBarOpen(true);
+	};
+
+	//Fonction pour mettre à jour les zones de pluie
+	const updateRainingAreas = (stepIdx: number) => {
+		if (
+			!areaPrevisionRoute ||
+			areaPrevisionRoute.length === 0 ||
+			stepIdx >= areaPrevisionRoute.length
+		) {
+			setAreas([]);
+			return;
+		}
+
+		// Récupérer les zones de pluie de l'étape actuelle
+		const currentStepRainingAreas = areaPrevisionRoute[stepIdx].rainingArea;
+
+		// Mettre à jour l'état areas avec ces zones
+		setAreas(currentStepRainingAreas);
+	};
+
+	//Cette fonction pour mettre à jour la position du véhicule
+	const updateVehiclePosition = (value: number) => {
+		if (
+			!routes.length ||
+			!routes[0].coordinates ||
+			routes[0].coordinates.length === 0
+		) {
+			return;
+		}
+
+		const coordinates = routes[0].coordinates;
+		const totalPoints = coordinates.length;
+
+		// Calculez l'index dans le tableau de coordonnées en fonction de la valeur du slider
+		const pointIndex = Math.min(
+			Math.floor((value / 100) * (totalPoints - 1)),
+			totalPoints - 1
+		);
+
+		// Mettez à jour la position du véhicule
+		setVehicleLocation(coordinates[pointIndex]);
+
+		// Si vous avez besoin de suivre l'étape actuelle pour areaPrevisionRoute
+		if (areaPrevisionRoute.length > 0) {
+			// Déterminez à quelle étape appartient ce point
+			let cumulativePoints = 0;
+			let currentStepIndex = 0;
+
+			for (let i = 0; i < areaPrevisionRoute.length; i++) {
+				const stepPointCount = areaPrevisionRoute[i].route.length;
+				if (pointIndex < cumulativePoints + stepPointCount) {
+					currentStepIndex = i;
+					setIndexPositionInStep(pointIndex - cumulativePoints);
+					break;
+				}
+				cumulativePoints += stepPointCount;
+			}
+
+			// Mise à jour de l'étape actuelle
+			setStepIndex(currentStepIndex);
+
+			// Mise à jour des zones de pluie correspondant à l'étape actuelle
+			updateRainingAreas(currentStepIndex);
+		}
+	};
+
+	const onSelectSuggestionEnd = async (s: Suggestion) => {
+		setQueryEnd(s.label);
+		setShowSuggestionEnd(false);
+
+		const newLoc: LocationData = {
+			name: s.label,
+			latitude: s.coordinates[0],
+			longitude: s.coordinates[1],
+		};
+
+		setEndLocation(newLoc);
+		setCenter(s.coordinates as LatLngExpression);
+		setZoom(13);
+		setIsSideBarOpen(true);
+	};
+
+	/// ---- Effets ----
+	const handleMapClick = (e: any) => {
+		const { lat, lng } = e.latlng;
+
+		// Si le point de départ n'est pas défini
+		if (!startLocation) {
+			const newLoc: LocationData = {
+				latitude: lat,
+				longitude: lng,
+				name: `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
+			};
+			setStartLocation(newLoc);
+			setQueryStart(`${lat.toFixed(5)}, ${lng.toFixed(5)}`); // on met les coordonnées dans la barre
+		}
+		// Sinon, si le point d'arrivée n'est pas défini
+		else if (!endLocation) {
+			const newLoc: LocationData = {
+				latitude: lat,
+				longitude: lng,
+				name: `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
+			};
+			setEndLocation(newLoc);
+			setQueryEnd(`${lat.toFixed(5)}, ${lng.toFixed(5)}`); // coordonnées dans la barre arrivée
+			setIsRouteSearchBarOpen(true); // on ouvre la barre de recherche itinéraire
+		}
+		// Si les deux sont déjà définis → on réinitialise
+		else {
+			clearPoints();
+		}
+	};
+
+	// Calculer l'itinéraire quand les deux pins sont définis
+	// useEffect(() => {
+	// 	if (startLocation && endLocation) fetchRoute();
+	// }, [
+	// 	startLocation?.latitude,
+	// 	startLocation?.longitude,
+	// 	endLocation?.latitude,
+	// 	endLocation?.longitude,
+	// ]);
+
+	// Meteo effects
+	useEffect(() => {
+		if (startLocation) {
+			fetchMeteo(startLocation, setStartLocation, setMeteoLoadingStart, setMeteoErrorStart);
+		} else {
+			// Abort any ongoing requests if the location is cleared
+			if (meteoAbortControllerRef.current) {
+				meteoAbortControllerRef.current.abort();
+				meteoAbortControllerRef.current = null;
+			}
+			setStartLocation((prev) => (prev ? { ...prev, meteo: undefined } : prev));
+		}
+
+		return () => {
+			if (meteoAbortControllerRef.current) {
+				meteoAbortControllerRef.current.abort();
+			}
+		};
+	}, [startLocation?.latitude, startLocation?.longitude]);
+
+	//Interest Point effect
+	const fetchingInterestRef = useRef(false);
+
+	//Interest Point effect
+	useEffect(() => {
+		// Ne lancer que si les coords existent et qu'on n'a pas déjà des points
+		if (!endLocation?.latitude || !endLocation?.longitude || !startLocation) return;
+		if (fetchingInterestRef.current) return;
+
+		fetchingInterestRef.current = true;
+		console.log("Lancement de la récupération des points d'intérêt (guarded) dans useEffect");
+
+		const lat_list = [endLocation.latitude];
+		const lng_list = [endLocation.longitude];
+
+		(async () => {
+			try {
+				await fetchInterestPoints(lat_list, lng_list);
+			} catch (err) {
+				console.error("fetchInterestPoints error", err);
+			} finally {
+				fetchingInterestRef.current = false;
+			}
+		})();
+
+		// dépend uniquement des coordonnées pour éviter les reruns quand on ajoute meteo à l'objet
+	}, [endLocation?.latitude, endLocation?.longitude]);
+
+	useEffect(() => {
+		if (endLocation) {
+			fetchMeteo(endLocation, setEndLocation, setMeteoLoadingEnd, setMeteoErrorEnd);
+		} else {
+			// Abort any ongoing requests if the location is cleared
+			if (meteoAbortControllerRef.current) {
+				meteoAbortControllerRef.current.abort();
+				meteoAbortControllerRef.current = null;
+			}
+			setEndLocation((prev) => (prev ? { ...prev, meteo: undefined } : prev));
+		}
+
+		return () => {
+			if (meteoAbortControllerRef.current) {
+				meteoAbortControllerRef.current.abort();
+			}
+		};
+	}, [endLocation?.latitude, endLocation?.longitude]);
+
+	// Affiche les suggestions quand la query change
+	useEffect(() => {
+		setShowSuggestionStart(true);
+	}, [queryStart]);
+	useEffect(() => {
+		setShowSuggestionEnd(true);
+	}, [queryEnd]);
+
+	// Masque les suggestions quand la localisation est sélectionnée
+	useEffect(() => {
+		if (startLocation?.name) setShowSuggestionStart(false);
+	}, [startLocation?.name]);
+	useEffect(() => {
+		if (endLocation?.name) setShowSuggestionEnd(false);
+	}, [endLocation?.name]);
+
+	// Effet pour mettre à jour les zones de pluie quand l'étape change
+	useEffect(() => {
+		if (areaPrevisionRoute.length > 0) {
+			updateRainingAreas(stepIndex);
+		}
+	}, [stepIndex, areaPrevisionRoute]);
+
+	useEffect(() => {
+		if (routeError !== null) {
+			alert("Erreur lors du calcul de l'itinéraire : " + routeError);
+			setRouteLoading(false);
+			setRouteError(null);
+			// TODO: clearpoitn ?
+		}
+	}, [routeError]);
+
+	// Final cleanup
+	useEffect(() => {
+		return () => {
+			if (routeAbortControllerRef.current)
+				routeAbortControllerRef.current.abort();
+			if (meteoAbortControllerRef.current)
+				meteoAbortControllerRef.current.abort();
+		};
+	}, []);
+
+	/// ---- Rendu ----
+
+	function formatDuration(minutes: number) {
+		const h = Math.floor(minutes / 60);
+		const m = minutes % 60;
+		if (h > 0) return `${h}h ${m}min`;
+		return `${m}min`;
+	}
+	function RouteInfoCard({ distance, duration }: { distance: number; duration: number }) {
+		return (
+			<div className="rounded-2xl border p-4 shadow-sm grid grid-cols-2 gap-4 text-center">
+				<div className="flex flex-col items-center">
+					<Route className="w-5 h-5 mb-1 text-blue-500" />
+					<div className="text-xs text-muted-foreground">Distance</div>
+					<div className="text-lg font-semibold">{(distance / 1000).toFixed(1)} km</div>
+				</div>
+				<div className="flex flex-col items-center">
+					<Clock className="w-5 h-5 mb-1 text-green-500" />
+					<div className="text-xs text-muted-foreground">Durée</div>
+					<div className="text-lg font-semibold">{formatDuration(Math.round(duration / 60))}</div>
+				</div>
+			</div>
+		);
+	}
+	function sideBarHeader(location: LocationData | null) {
+		return (
+			<div className="mb-2">
+				<div className="text-2xl font-semibold">
+					{location?.name ||
+						(location?.latitude
+							? `${location.latitude.toFixed(10)}, 
+				  ${location.longitude.toFixed(10)}`
+							: "Aucune information disponible.")}
+				</div>
+				{/* Coordonnées */}
+				{location && (
+					<div className="text-sm text-muted-foreground">
+						Coordonnées: {location.latitude.toFixed(4)},{" "}
+						{location.longitude.toFixed(4)}
+					</div>
+				)}
+			</div>
+		);
+	}
+
+	function meteoInfoCard(
+		title: string,
+		icon: React.ReactNode,
+		data: number | undefined,
+		unit: string | undefined,
+		keyName: string
+	) {
+		// Determine which location to use
+		const location =
+			selectedMeteoView === "start" ? startLocation : endLocation;
+		return (
+			<div
+				className="rounded-2xl border p-3 ml-2 mr-2 shadow-sm flex flex-col items-center text-center cursor-pointer hover:bg-muted transition"
+				onClick={() => {
+					setSelectedMeteoKey(keyName);
+					if (location) {
+						fetchForecast(location.latitude, location.longitude);
+						setIsDrawerOpen(true);
+					}
+				}}
+			>
+				{icon}
+				<div className="text-xs text-muted-foreground">{title}</div>
+				<div className="text-xl font-semibold">
+					{data ?? "-"}
+					{unit ? ` ${unit}` : " ??"}
+				</div>
+			</div>
+		);
+	}
+
+	function meteoComponentFor(
+		location: LocationData | null,
+		meteoLoading: boolean,
+		meteoError: string | null
+	) {
+		return (
+			<div className="mt-6 space-y-3">
+				{/* Meteo Info Header */}
+
+				<div className="col-span-2 flex items-center gap-2 my-4">
+					<div className="h-px flex-1 bg-muted" />
+					<span className="text-xs uppercase tracking-wide text-muted-foreground">
+						Météo actuelle
+					</span>
+					<div className="h-px flex-1 bg-muted" />
+				</div>
+
+				{meteoError && (
+					<div className="text-sm text-red-600 p-2 rounded-md border border-red-200 bg-red-50">
+						<CircleX className="inline-block mr-1 mb-1 text-red-500" />
+						{meteoError || "Erreur lors de la récupération des données météo."}
+					</div>
+				)}
+
+				{meteoLoading && (
+					<div className="text-sm text-muted-foreground p-2 flex items-center gap-2">
+						<Loader2 className="w-4 h-4 animate-spin" />
+						Chargement des données météo…
+					</div>
+				)}
+
+				{!meteoLoading && !meteoError && !location && (
+					<div className="text-sm text-muted-foreground p-2 flex items-center gap-2">
+						<TriangleAlert className="w-4 h-4 text-yellow-500" />
+						Sélectionner une localisation pour afficher la météo.
+					</div>
+				)}
+
+				{!meteoLoading && !meteoError && location?.meteo && (
+					<div className="grid grid-cols-2 gap-4">
+						{meteoInfosCurrentFor(location)}
+					</div>
+				)}
+			</div>
+		);
+	}
+
+	// version adaptée de meteoInfosCurrent mais avec un paramètre location
+	function meteoInfosCurrentFor(location: LocationData) {
+		return (
+			<>
+				{meteoInfoCard(
+					"Température",
+					<Thermometer className="w-5 h-5 mb-1 text-red-500" />,
+					location.meteo?.temperature,
+					location.meteo?.temperature_unit || "°C",
+					"temperature"
+				)}
+				{meteoInfoCard(
+					"Température ressentie",
+					<Thermometer className="w-5 h-5 mb-1 text-red-500" />,
+					location.meteo?.apparent_temperature,
+					location.meteo?.apparent_temperature_unit || "°C",
+					"apparent_temperature"
+				)}
+				{meteoInfoCard(
+					"Humidité",
+					<Droplets className="w-5 h-5 mb-1 text-cyan-500" />,
+					location.meteo?.humidity,
+					location.meteo?.humidity_unit || "%",
+					"humidity"
+				)}
+				{meteoInfoCard(
+					"Vent",
+					<Wind className="w-5 h-5 mb-1 text-gray-500" />,
+					location.meteo?.windSpeed,
+					location.meteo?.windSpeed_unit || "km/h",
+					"windSpeed"
+				)}
+				{meteoInfoCard(
+					"Pluie",
+					<CloudRainWind className="w-5 h-5 mb-1 text-blue-500" />,
+					location.meteo?.rain,
+					location.meteo?.rain_unit || "mm",
+					"rain"
+				)}
+				{meteoInfoCard(
+					"Précipitations",
+					<CloudDrizzle className="w-5 h-5 mb-1 text-blue-500" />,
+					location.meteo?.precipitation,
+					location.meteo?.precipitation_unit || "mm",
+					"precipitation"
+				)}
+				{meteoInfoCard(
+					"Couverture nuageuse",
+					<Cloud className="w-5 h-5 mb-1 text-sky-500" />,
+					location.meteo?.cloudCover,
+					location.meteo?.cloudCover_unit || "%",
+					"cloudCover"
+				)}
+				{meteoInfoCard(
+					"Visibilité",
+					<CloudFog className="w-5 h-5 mb-1 text-sky-500" />,
+					location.meteo?.visibility,
+					location.meteo?.visibility_unit || "m",
+					"visibility"
+				)}
+			</>
+		);
+	}
+
+	const computeRainStepFromSlider = (value: number) => {
+		if (!areaPrevisionRoute || areaPrevisionRoute.length === 0) return 0;
+		const n = areaPrevisionRoute.length;
+		// Mapping linéaire
+		return Math.min(n - 1, Math.floor((value / 100) * n));
+	};
+
+	function sideBar() {
+		return (
+			<SidebarProvider
+				defaultOpen={false}
+				open={isSideBarOpen}
+				onOpenChange={setIsSideBarOpen}
+			>
+				<AppSidebar
+					header={sideBarHeader(
+						selectedMeteoView == "start" && startLocation
+							? startLocation
+							: endLocation
+					)}
+					content={
+						<>
+							{startLocation && endLocation ? (
+								<>
+									{/* Toggle de sélection */}
+									<div className="flex justify-center gap-2 my-3">
+										<Button
+											variant={
+												selectedMeteoView === "start" ? "default" : "outline"
+											}
+											size="sm"
+											onClick={() => setSelectedMeteoView("start")}
+										>
+											Départ
+										</Button>
+										<Button
+											variant={
+												selectedMeteoView === "end" ? "default" : "outline"
+											}
+											size="sm"
+											onClick={() => setSelectedMeteoView("end")}
+										>
+											Arrivée
+										</Button>
+
+									</div>
+
+									{/* Affichage de la distance s'il y a un chemin */}
+									{routes.length > 0 && routes[0] && (
+										<RouteInfoCard distance={distance} duration={duration} />
+									)}
+
+									{/* Affichage conditionnel */}
+									{selectedMeteoView === "start" &&
+										meteoComponentFor(startLocation, meteoLoadingStart, meteoErrorStart)}
+									{selectedMeteoView === "end" &&
+										meteoComponentFor(endLocation, meteoLoadingEnd, meteoErrorEnd)}
+								</>
+							) : (
+								// Sinon, seulement la météo du départ
+								meteoComponentFor(startLocation, meteoLoadingStart, meteoErrorStart)
+							)}
+						</>
+					}
+				/>
+				<SidebarInset>
+					<div className="flex flex-col h-full">
+						<header className="flex h-16 items-center gap-2 border-b px-4">
+							<SidebarTrigger />
+							<Separator
+								orientation="vertical"
+								className="mr-2 data-[orientation=vertical]:h-4"
+							/>
+							Weather Map
+						</header>
+						{/* Layout principal en position relative pour le positionnement absolu des éléments */}
+						<div className="flex-1 relative overflow-hidden">
+							{/* Carte en arrière-plan */}
+							<div className="absolute inset-0 z-0">{mapComponent()}</div>
+
+							{/* Bouton toggle la barre de recherche d'itinéraire */}
+							<div className="absolute top-4 left-4 z-30">
+								{buttonToggleSearchBar()}
+							</div>
+
+							{/* Barre de recherche en haut à gauche */}
+							<div className="absolute top-4 left-16 z-30">{searchBar()}</div>
+
+							{/* Filtres en haut à droite */}
+							<div className="absolute top-4 right-20 z-30">
+								{filterLayer()}
+							</div>
+
+							{/* Slider au centre en bas */}
+							<div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-30 w-[30%] flex justify-center">
+								<Slider
+									// disabled={!routes || routes.length === 0 || routes[0].coordinates.length === 0}
+									className="absolute bottom-5 left-1/2 -translate-x-1/2 w-[30%] z-10"
+									value={[sliderValue]}
+									onValueChange={(values) => {
+										const newValue = values[0];
+										setSliderValue(newValue);
+										const hasRoute = routes.length > 0 && routes[0].coordinates && routes[0].coordinates.length > 0;
+										if (hasRoute) {
+											updateVehiclePosition(newValue);
+										} else {
+											// Mode "aucune route": slider -> sélection de la frame pluie
+											if (dynamicMode) {
+												const idx = computeRainStepFromSlider(newValue);
+												setStepIndex(idx); // useEffect mettra à jour areas via updateRainingAreas
+											}
+										}
+									}}
+									max={100}
+									step={1}
+								/>
+							</div>
+						</div>
+					</div>
+				</SidebarInset>
+			</SidebarProvider>
+		);
+	}
+
+	function buttonToggleSearchBar() {
+		return (
+			<Button
+				variant="secondary"
+				size="icon"
+				onClick={() => setIsRouteSearchBarOpen((prev) => !prev)}
+			>
+				<ChevronRightIcon
+					className={`transition-transform duration-300 ${isRouteSearchBarOpen ? "rotate-90" : ""
+						}`}
+				/>
+			</Button>
+		);
+	}
+
+	function searchBar() {
+		return (
+			<div className="transition-all duration-300 w-72 opacity-100 bg-white shadow-lg rounded-lg p-2 space-y-3 overflow-hidden">
+				{/* Recherche départ et générale*/}
+				<Command>
+					<CommandInput
+						placeholder="Rechercher dans GoogleMaps..."
+						value={queryStart}
+						onValueChange={setQueryStart}
+					/>
+
+					{showSuggestionStart && queryStart && (
+						<CommandList>
+							<CommandGroup heading="Suggestions">
+								{suggestionsStart.map((s, idx) => (
+									<CommandItem
+										key={idx}
+										value={s.label}
+										onSelect={() => onSelectSuggestionStart(s)}
+									>
+										{s.label}
+									</CommandItem>
+								))}
+							</CommandGroup>
+							<CommandEmpty>Aucun résultat.</CommandEmpty>
+						</CommandList>
+					)}
+				</Command>
+
+				{/* Recherche arrivée */}
+				{isRouteSearchBarOpen && (
+					<Command>
+						<CommandInput
+							placeholder="Destination..."
+							value={queryEnd}
+							onValueChange={setQueryEnd}
+						/>
+
+						{showSuggestionEnd && queryEnd && (
+							<CommandList>
+								<CommandGroup heading="Suggestions">
+									{suggestionsEnd.map((s, idx) => (
+										<CommandItem
+											key={idx}
+											value={s.label}
+											onSelect={() => {
+												onSelectSuggestionEnd(s);
+											}}
+										>
+											{s.label}
+										</CommandItem>
+									))}
+								</CommandGroup>
+								<CommandEmpty>Aucun résultat.</CommandEmpty>
+							</CommandList>
+						)}
+					</Command>
+				)}
+
+				{isRouteSearchBarOpen && (
+					<>
+						<div className="flex items-center gap-2 p-2">
+							<Checkbox
+								disabled={routeLoading || routeError != null}
+								checked={avoidConditionRain}
+								onCheckedChange={(checked) => { setAvoidConditionRain(!!checked); if (!checked) setDynamicMode(false); }} />
+							<Label>Éviter la pluie</Label>
+						</div>
+						<div className="flex items-center gap-2 p-2">
+							<Checkbox
+								disabled={routeLoading || routeError != null || !avoidConditionRain}
+								checked={dynamicMode}
+								onCheckedChange={(checked) => { setDynamicMode(!!checked); }} />
+							<Label>Mode prévisionnel</Label>
+						</div>
+						<div className="flex items-center gap-2 p-2">
+							<Checkbox
+								disabled={!endLocation}
+								onCheckedChange={(checked) => {
+									setPrintInterestPoint(checked);
+
+									if (checked) { setCenter([endLocation?.latitude, endLocation?.longitude] as LatLngExpression); setZoom(15); }
+								}} />
+							<Label>Afficher les points d'intéret de la destination</Label>
+
+						</div>
+						<Button
+							disabled={!startLocation || !endLocation || routeLoading}
+							onClick={fetchRoute}
+							className="w-full">
+							{routeLoading ? "Calcul en cours..." : "Rechercher l’itinéraire"}
+						</Button>
+					</>
+				)}
+
+			</div>
+		);
+	}
+
+	function filterLayer() {
+		return (
+			<div className="flex flex-row gap-2">
+				<MapFilterCard
+					setSelected={setIsTempMapSelected}
+					selected={isTempMapSelected}
+					img={"../img/soleil.png"}
+				/>
+				<MapFilterCard
+					setSelected={setIsRainMapSelected}
+					selected={isRainMapSelected}
+					img={"../img/pluie.png"}
+				/>
+				<MapFilterCard
+					setSelected={setIsCloudMapSelected}
+					selected={isCloudMapSelected}
+					img={"../img/nuage.png"}
+				/>
+				<MapFilterCard
+					setSelected={setIsWindMapSelected}
+					selected={isWindMapSelected}
+					img={"../img/vent.png"}
+				/>
+			</div>
+		);
+	}
+
+	function mapComponent() {
+		return (
+			<MapCard
+				center={center}
+				zoom={zoom}
+				showTempLayer={!!isTempMapSelected}
+				showRainLayer={!!isRainMapSelected}
+				showCloudLayer={!!isCloudMapSelected}
+				showWindLayer={!!isWindMapSelected}
+				routes={routes}
+				areas={areas}
+				startPin={
+					startLocation?.latitude && startLocation?.longitude
+						? [startLocation.latitude, startLocation.longitude]
+						: null
+				}
+				endPin={
+					endLocation?.latitude && endLocation?.longitude
+						? [endLocation.latitude, endLocation.longitude]
+						: null
+				}
+				vehicleLocation={vehicleLocation}
+				areaPrevisionRoute={areaPrevisionRoute}
+				interestPoint={interestPoint}
+				printInterestPoint={printInterestPoint}
+				onMapClick={handleMapClick}
+				onStartPinMove={(latlng) => {
+					const newName = `${latlng.lat.toFixed(5)}, ${latlng.lng.toFixed(5)}`;
+					setStartLocation({
+						latitude: latlng.lat,
+						longitude: latlng.lng,
+						name: newName
+					});
+					setQueryStart(newName); // <-- mise à jour de la searchbar
+				}}
+
+				onEndPinMove={(latlng) => {
+					const newName = `${latlng.lat.toFixed(5)}, ${latlng.lng.toFixed(5)}`;
+					setEndLocation({
+						latitude: latlng.lat,
+						longitude: latlng.lng,
+						name: newName
+					});
+					setQueryEnd(newName); // <-- mise à jour de la searchbar
+				}}
+
+			/>
+		);
+	}
+
+	// ---------- Home Render ----------
+	return (
+		<div className="relative w-full h-full">
+			{/* Sidebar informations */}
+			{sideBar()}
+			{/* Drawer for forecast charts */}
+			<Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
+				<DrawerContent className="max-w-2xl mx-auto">
+					<DrawerHeader>
+						<DrawerTitle>
+							Prévisions : {selectedMeteoKey}
+						</DrawerTitle>
+					</DrawerHeader>
+					<div className="p-4">
+						{forecastLoading && (
+							<div className="flex items-center gap-2 text-muted-foreground">
+								<Loader2 className="w-4 h-4 animate-spin" />
+								Chargement des prévisions…
+							</div>
+						)}
+						{forecastError && (
+							<div className="text-sm text-red-600 p-2 rounded-md border border-red-200 bg-red-50">
+								<CircleX className="inline-block mr-1 mb-1 text-red-500" />
+								{forecastError}
+							</div>
+						)}
+						{forecastData && selectedMeteoKey && forecastData.time && forecastData[selectedMeteoKey] && (
+							<div className="w-full h-48">
+								<Bar
+									data={{
+										labels: forecastData.time.map((time: string) =>
+											new Date(time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+										),
+										datasets: [
+											{
+												label: selectedMeteoKey,
+												data: forecastData[selectedMeteoKey],
+												backgroundColor: "rgba(59,130,246,0.7)",
+												borderColor: "rgb(59,130,246)",
+												borderWidth: 1,
+											},
+										],
+									}}
+									options={{
+										responsive: true,
+										plugins: {
+											legend: { display: true },
+											title: { display: false },
+										},
+										maintainAspectRatio: false,
+									}}
+									height={192}
+									width={400}
+								/>
+							</div>
+						)}
+						{forecastData && selectedMeteoKey && (!forecastData[selectedMeteoKey] || !forecastData.time) && (
+							<div className="text-sm text-muted-foreground">Aucune donnée prévisionnelle disponible.</div>
+						)}
+					</div>
+				</DrawerContent>
+			</Drawer>
+		</div>
+	);
+};
+
+export default Home;
