@@ -1192,25 +1192,25 @@ const Home: React.FC = () => {
 				interestPoint={interestPoint}
 				printInterestPoint={printInterestPoint}
 				onMapClick={handleMapClick}
-onStartPinMove={(latlng) => {
-	const newName = `${latlng.lat.toFixed(5)}, ${latlng.lng.toFixed(5)}`;
-	setStartLocation({
-		latitude: latlng.lat,
-		longitude: latlng.lng,
-		name: newName
-	});
-	setQueryStart(newName); // <-- mise à jour de la searchbar
-}}
+				onStartPinMove={(latlng) => {
+					const newName = `${latlng.lat.toFixed(5)}, ${latlng.lng.toFixed(5)}`;
+					setStartLocation({
+						latitude: latlng.lat,
+						longitude: latlng.lng,
+						name: newName
+					});
+					setQueryStart(newName); // <-- mise à jour de la searchbar
+				}}
 
-onEndPinMove={(latlng) => {
-	const newName = `${latlng.lat.toFixed(5)}, ${latlng.lng.toFixed(5)}`;
-	setEndLocation({
-		latitude: latlng.lat,
-		longitude: latlng.lng,
-		name: newName
-	});
-	setQueryEnd(newName); // <-- mise à jour de la searchbar
-}}
+				onEndPinMove={(latlng) => {
+					const newName = `${latlng.lat.toFixed(5)}, ${latlng.lng.toFixed(5)}`;
+					setEndLocation({
+						latitude: latlng.lat,
+						longitude: latlng.lng,
+						name: newName
+					});
+					setQueryEnd(newName); // <-- mise à jour de la searchbar
+				}}
 
 			/>
 		);
@@ -1223,7 +1223,7 @@ onEndPinMove={(latlng) => {
 			{sideBar()}
 			{/* Drawer for forecast charts */}
 			<Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
-				<DrawerContent>
+				<DrawerContent className="max-w-2xl mx-auto">
 					<DrawerHeader>
 						<DrawerTitle>
 							Prévisions : {selectedMeteoKey}
@@ -1246,7 +1246,9 @@ onEndPinMove={(latlng) => {
 							<div className="w-full h-48">
 								<Bar
 									data={{
-										labels: forecastData.time,
+										labels: forecastData.time.map((time: string) =>
+											new Date(time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+										),
 										datasets: [
 											{
 												label: selectedMeteoKey,
