@@ -16,6 +16,7 @@ import L, { LatLngExpression } from "leaflet";
 import { RouteData } from "@/types/routes";
 import { Area } from "@/types/area";
 import { AreaPrevisionRoute } from "@/types/areaPrevisionRoute";
+import { InterestPoint, InterestPointTypeEnum } from "@/types/interestPoint";
 
 const apikey = import.meta.env.VITE_OPEN_WEATHER_API_KEY;
 const DEBUG = import.meta.env.DEBUG === 'true';
@@ -54,6 +55,8 @@ interface MapProps {
 	endPin?: LatLngExpression | null;
 	vehicleLocation?: LatLngExpression | null;
 	areaPrevisionRoute?: AreaPrevisionRoute[];
+	interestPoint?: InterestPoint[];
+	printInterestPoint?: boolean;
 	onMapClick: (e: any) => void;
 }
 
@@ -129,6 +132,8 @@ const MapCard: React.FC<MapProps> = ({
 	endPin = null,
 	vehicleLocation = null,
 	areaPrevisionRoute = [],
+	interestPoint = [],
+	printInterestPoint = false,
 	onMapClick,
 }) => {
 	return (
@@ -195,6 +200,27 @@ const MapCard: React.FC<MapProps> = ({
 					>
 					</Polygon>
 				))}
+
+				{/* Afficher les points d'intérêt proche de la route*/}
+				{printInterestPoint && interestPoint && interestPoint.length > 0 && interestPoint.map((point, index) => (
+						<Marker
+							key={index}
+							position={[point.lat, point.lng]}
+							icon={L.icon({
+								iconUrl: point.type === InterestPointTypeEnum.Restaurant ? "../img/restaurant.png" :
+										point.type === InterestPointTypeEnum.Toilets ? "../img/wc.png" :
+										"../img/supermarket.png",
+								iconSize: [32, 32], // adapte à la taille réelle de ton PNG
+								iconAnchor: [16, 16], // centre de l'image sur le point
+								popupAnchor: [0, -16],
+							})}
+						>
+							<Popup>
+								{point.name}
+							</Popup>
+						</Marker>
+					))
+				}
 				{routes && routes.length > 0 && routes.map((route, index) => (
 					<Polyline
 						key={route.id}

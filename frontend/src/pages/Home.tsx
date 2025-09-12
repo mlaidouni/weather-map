@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { use, useEffect, useState } from "react";
 import MapCard from "../components/card/MapCard";
 import L, { LatLngExpression } from "leaflet";
 import {
@@ -40,6 +40,8 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { AreaPrevisionRoute } from "@/types/areaPrevisionRoute";
 
 import { useRef } from 'react';
+import { InterestPoint, InterestPointTypeEnum } from "@/types/interestPoint";
+import { fetchInterestPoint } from "@/api/interestpoint";
 
 const Home: React.FC = () => {
 	/// ---- États ----
@@ -82,6 +84,10 @@ const Home: React.FC = () => {
 	const [stepIndex, setStepIndex] = useState(0);
 	const [sliderValue, setSliderValue] = useState(0);
 
+	//Variable pour les points d'intérêt
+	const [interestPoint,setInterestPoint] = useState<InterestPoint[]>([]);
+	const [printInterestPoint, setPrintInterestPoint] = useState(false);
+
 	// Sheet
 	const [isSideBarOpen, setIsSideBarOpen] = useState(false);
 
@@ -116,6 +122,7 @@ const Home: React.FC = () => {
 		setRouteLoading(false);
 		setAreaPrevisionRoute([]);
 		setVehicleLocation(null);
+		setInterestPoint([]);
 	};
 
 	// Appel au backend pour calculer l'itinéraire
@@ -268,6 +275,8 @@ const Home: React.FC = () => {
 				// Réinitialiser si aucune donnée valide
 				setAreaPrevisionRoute([]);
 			}
+
+			
 		}
 		catch (e: any) {
 			alert("Erreur lors du calcul de l'itinéraire : " + e.message);
@@ -322,6 +331,47 @@ const Home: React.FC = () => {
 				setMeteoLoading(false);
 			}
 		}
+	};
+
+	//Fonction pour récupérer les points d'intérêt
+	const fetchInterestPoints = async (lat_list: number[], lng_list: number[]) => {
+		console.log("Récupération des points d'intérêt...");
+		const dataInterestPoint = await fetchInterestPoint(lat_list, lng_list);
+		const dataInterestList : InterestPoint[] = [];
+		console.log(dataInterestPoint);
+		if (dataInterestPoint) {
+			if(dataInterestPoint.toilets.length > 0){
+				dataInterestPoint.toilets.forEach((point: any) => {
+					dataInterestList.push({
+						name: point.name == "Inconnu" ? "WC" : point.name,
+						lat: point.lat,
+						lng: point.lon,
+						type: InterestPointTypeEnum.Toilets
+					});
+				});
+			}
+			if(dataInterestPoint.restaurant.length > 0){
+				dataInterestPoint.restaurant.forEach((point: any) => {
+					dataInterestList.push({
+						name: point.name == "Inconnu" ? "Restaurant" : point.name,
+						lat: point.lat,
+						lng: point.lon,
+						type: InterestPointTypeEnum.Restaurant
+					});
+				});
+			}
+			if(dataInterestPoint.supermarket.length > 0){
+				dataInterestPoint.supermarket.forEach((point: any) => {
+					dataInterestList.push({
+						name: point.name == "Inconnu" ? "SuperMarché" : point.name,
+						lat: point.lat,
+						lng: point.lon,
+						type: InterestPointTypeEnum.Supermarket
+					});
+				});
+			}
+		}
+		setInterestPoint(dataInterestList);
 	};
 
 	const onSelectSuggestionStart = async (s: Suggestion) => {
@@ -450,6 +500,36 @@ const Home: React.FC = () => {
 			}
 		};
 	}, [startLocation?.latitude, startLocation?.longitude]);
+
+	//Interest Point effect
+	const fetchingInterestRef = useRef(false);
+
+	//Interest Point effect
+	useEffect(() => {
+		// Ne lancer que si les coords existent et qu'on n'a pas déjà des points
+		if (!endLocation?.latitude || !endLocation?.longitude || !startLocation) return;
+		if (interestPoint.length > 0) return;
+		if (fetchingInterestRef.current) return;
+
+		fetchingInterestRef.current = true;
+		console.log("Lancement de la récupération des points d'intérêt (guarded) dans useEffect");
+
+		const lat_list = [endLocation.latitude];
+		const lng_list = [endLocation.longitude];
+
+		(async () => {
+			try {
+				await fetchInterestPoints(lat_list, lng_list);
+			} catch (err) {
+				console.error("fetchInterestPoints error", err);
+			} finally {
+				fetchingInterestRef.current = false;
+			}
+		})();
+
+	// dépend uniquement des coordonnées pour éviter les reruns quand on ajoute meteo à l'objet
+	}, [endLocation?.latitude, endLocation?.longitude, startLocation?.latitude, startLocation?.longitude, interestPoint.length]);
+
 
 	useEffect(() => {
 		if (endLocation) fetchMeteo(endLocation, setEndLocation);
@@ -826,6 +906,13 @@ const Home: React.FC = () => {
 								// TODO: Rafraîchir l'itinéraire avec le filtre
 							}} />
 						<Label>Éviter la pluie</Label>
+						<Checkbox
+							disabled={!startLocation || !endLocation}
+							onCheckedChange={(checked) => {
+								setPrintInterestPoint(checked);
+							}} />
+						<Label>Afficher les points d'intéret de la destination</Label>
+
 					</div><Button
 						disabled={!startLocation || !endLocation || routeLoading}
 						onClick={fetchRoute}
@@ -889,6 +976,8 @@ const Home: React.FC = () => {
 				}
 				vehicleLocation={vehicleLocation}
 				areaPrevisionRoute={areaPrevisionRoute}
+				interestPoint={interestPoint}
+				printInterestPoint={printInterestPoint}
 				onMapClick={handleMapClick}
 			/>
 		);
