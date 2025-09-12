@@ -130,7 +130,8 @@ const Home: React.FC = () => {
 	setQueryEnd("");
 	setShowSuggestionStart(false);
 	setShowSuggestionEnd(false);
-	setIsRouteSearchBarOpen(false)
+	setIsRouteSearchBarOpen(false);
+	setSliderValue(0);
   };
 
   // Appel au backend pour calculer l'itinéraire
