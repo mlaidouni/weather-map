@@ -187,7 +187,6 @@ const Home: React.FC = () => {
 			// If there is an error, show a popup
 			if (data.error) {
 				alert("Error: " + data.error);
-				return;
 			}
 
 			if (data.steps && Array.isArray(data.steps)) {
@@ -263,6 +262,10 @@ const Home: React.FC = () => {
 						duration: 0
 					};
 					setRoutes([completeRoute]);
+				} else {
+					setRoutes([]);
+                    setStepIndex(0);
+                    setAreas(routeWithRainAreas.length > 0 ? routeWithRainAreas[0].rainingArea : []);
 				}
 			} else {
 				// Réinitialiser si aucune donnée valide
@@ -638,6 +641,13 @@ const Home: React.FC = () => {
 		);
 	}
 
+	const computeRainStepFromSlider = (value: number) => {
+        if (!areaPrevisionRoute || areaPrevisionRoute.length === 0) return 0;
+        const n = areaPrevisionRoute.length;
+        // Mapping linéaire
+        return Math.min(n - 1, Math.floor((value / 100) * n));
+    };
+
 	function sideBar() {
 		return (
 			<SidebarProvider
@@ -726,9 +736,16 @@ const Home: React.FC = () => {
 									className="absolute bottom-5 left-1/2 -translate-x-1/2 w-[30%] z-10"
 									value={[sliderValue]}
 									onValueChange={(values) => {
-										const newValue = values[0];
-										setSliderValue(newValue);
-										updateVehiclePosition(newValue);
+                                        const newValue = values[0];
+                                        setSliderValue(newValue);
+                                        const hasRoute = routes.length > 0 && routes[0].coordinates && routes[0].coordinates.length > 0;
+                                        if (hasRoute) {
+                                            updateVehiclePosition(newValue);
+                                        } else {
+                                            // Mode "aucune route": slider -> sélection de la frame pluie
+                                            const idx = computeRainStepFromSlider(newValue);
+                                            setStepIndex(idx); // useEffect mettra à jour areas via updateRainingAreas
+                                        }
 									}}
 									max={100}
 									step={1}

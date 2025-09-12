@@ -7,15 +7,16 @@ import java.util.Map;
 
 public class AreaUtils {
 
+    public static final double DEFAULT_MARGIN_KM = 1.0;
+
     public static Map<String, Double> expandedArea(
             double startLat, double startLng,
-            double endLat, double endLng,
-            double marginKm) {
+            double endLat, double endLng) {
         double latCenter = (startLat + endLat) / 2.0;
 
         // Conversion marge en degrés
-        double latOffset = marginKm / 111.0;
-        double lonOffset = marginKm / (111.0 * Math.cos(Math.toRadians(latCenter)));
+        double latOffset = DEFAULT_MARGIN_KM / 111.0;
+        double lonOffset = DEFAULT_MARGIN_KM / (111.0 * Math.cos(Math.toRadians(latCenter)));
 
         // Bounding box centrée sur start et end
         double latMin = Math.min(startLat, endLat) - latOffset;
