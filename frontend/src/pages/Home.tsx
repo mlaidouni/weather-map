@@ -48,16 +48,15 @@ import { AreaPrevisionRoute } from "@/types/areaPrevisionRoute";
 import { useRef } from "react";
 
 const Home: React.FC = () => {
-  /// ---- États ----
-  // Map
-  const [center, setCenter] = useState<LatLngExpression>([48.86, 2.33]);
-  const [zoom, setZoom] = useState(12);
-  // Filtre de la map
-  const [isTempMapSelected, setIsTempMapSelected] = useState(0);
-  const [isRainMapSelected, setIsRainMapSelected] = useState(0);
-  const [isCloudMapSelected, setIsCloudMapSelected] = useState(0);
-  const [isWindMapSelected, setIsWindMapSelected] = useState(0);
-  const [routeFilteredByRain, setRouteFilteredByRain] = useState(false);
+	/// ---- États ----
+	// Map
+	const [center, setCenter] = useState<LatLngExpression>([48.86, 2.33]);
+	const [zoom, setZoom] = useState(12);
+	// Filtre de la map
+	const [isTempMapSelected, setIsTempMapSelected] = useState(0);
+	const [isRainMapSelected, setIsRainMapSelected] = useState(0);
+	const [isCloudMapSelected, setIsCloudMapSelected] = useState(0);
+	const [isWindMapSelected, setIsWindMapSelected] = useState(0);
 
   // Recherche et Search bar
   const [isRouteSearchBarOpen, setIsRouteSearchBarOpen] = useState(false);
@@ -72,26 +71,24 @@ const Home: React.FC = () => {
   const [startLocation, setStartLocation] = useState<LocationData | null>(null);
   const [endLocation, setEndLocation] = useState<LocationData | null>(null);
 
-  //Localisation du véhicule
-  const [vehicleLocation, setVehicleLocation] =
-    useState<LatLngExpression | null>(null);
+	// Localisation du véhicule
+	const [vehicleLocation, setVehicleLocation] = useState<LatLngExpression | null>(null);
 
-  // Itinéraire
-  const [routes, setRoutes] = useState<RouteData[]>([]);
-  const [routeLoading, setRouteLoading] = useState(false);
-  const [routeError, setRouteError] = useState<string | null>(null);
-  const [areas, setAreas] = useState<Area[]>([]);
-  const [routeSearch, setRouteSearch] = useState(false);
+	// Itinéraire
+	const [routes, setRoutes] = useState<RouteData[]>([]);
+	const [routeLoading, setRouteLoading] = useState(false);
+	const [routeError, setRouteError] = useState<string | null>(null);
+	const [areas, setAreas] = useState<Area[]>([]);
+	const [avoidConditionRain, setAvoidConditionRain] = useState(false);
+	const [dynamicMode, setDynamicMode] = useState(false);
   const [duration, setDuration] = useState(0);
   const [distance, setDistance] = useState(0);
 
-  //Zone de pluie en fonction de l'itinéraire
-  const [areaPrevisionRoute, setAreaPrevisionRoute] = useState<
-    AreaPrevisionRoute[]
-  >([]);
-  const [indexPositionInStep, setIndexPositionInStep] = useState(0);
-  const [stepIndex, setStepIndex] = useState(0);
-  const [sliderValue, setSliderValue] = useState(0);
+	//Zone de pluie en fonction de l'itinéraire
+	const [areaPrevisionRoute, setAreaPrevisionRoute] = useState<AreaPrevisionRoute[]>([]);
+	const [indexPositionInStep, setIndexPositionInStep] = useState(0);
+	const [stepIndex, setStepIndex] = useState(0);
+	const [sliderValue, setSliderValue] = useState(0);
 
   // Sheet
   const [isSideBarOpen, setIsSideBarOpen] = useState(false);
@@ -209,7 +206,7 @@ const Home: React.FC = () => {
       const data = await fetchRoutingWeatherAware(
         startLatLng,
         endLatLng,
-        signal
+        signal, avoidConditionRain ? 'rain' : '', dynamicMode
       );
       setDuration(data.duration);
       setDistance(data.distance);
@@ -291,38 +288,36 @@ const Home: React.FC = () => {
           }
         });
 
-        if (allCoordinates.length > 0) {
-          const completeRoute: RouteData = {
-            id: "route-main",
-            coordinates: allCoordinates,
-            distance: 0,
-            duration: 0,
-          };
-          setRoutes([completeRoute]);
-        }
-      } else {
-        // Réinitialiser si aucune donnée valide
-        setAreaPrevisionRoute([]);
-      }
-    } catch (e: any) {
-      alert("Erreur lors du calcul de l'itinéraire : " + e.message);
-      // Don't show error if the request was aborted
-      if (e.name === "AbortError") {
-        console.log("Request was aborted");
-      } else {
-        console.error(e);
-        setRouteError("Impossible de calculer l'itinéraire.");
-      }
-    } finally {
-      // Only clear loading state if this is still the current request
-      if (
-        routeAbortControllerRef.current &&
-        routeAbortControllerRef.current.signal === signal
-      ) {
-        setRouteLoading(false);
-      }
-    }
-  };
+				if (allCoordinates.length > 0) {
+					const completeRoute: RouteData = {
+						id: 'route-main',
+						coordinates: allCoordinates,
+						distance: 0,
+						duration: 0
+					};
+					setRoutes([completeRoute]);
+				}
+			} else {
+				// Réinitialiser si aucune donnée valide
+				setAreaPrevisionRoute([]);
+			}
+		}
+		catch (e: any) {
+			// Don't show error if the request was aborted
+			if (e.name === 'AbortError') {
+				console.log('Request was aborted');
+			} else {
+				console.error(e);
+				setRouteError("Impossible de calculer l'itinéraire. Erreur lors du calcul de l'itinéraire : " + e.message);
+			}
+		}
+		finally {
+			// Only clear loading state if this is still the current request
+			if (routeAbortControllerRef.current && routeAbortControllerRef.current.signal === signal) {
+				setRouteLoading(false);
+			}
+		}
+	};
 
   // Mis à jour de la météo quand la localisation change
   const fetchMeteo = async (
@@ -556,12 +551,21 @@ const Home: React.FC = () => {
     if (endLocation?.name) setShowSuggestionEnd(false);
   }, [endLocation?.name]);
 
-  // Effet pour mettre à jour les zones de pluie quand l'étape change
-  useEffect(() => {
-    if (areaPrevisionRoute.length > 0) {
-      updateRainingAreas(stepIndex);
-    }
-  }, [stepIndex, areaPrevisionRoute]);
+	// Effet pour mettre à jour les zones de pluie quand l'étape change
+	useEffect(() => {
+		if (areaPrevisionRoute.length > 0) {
+			updateRainingAreas(stepIndex);
+		}
+	}, [stepIndex, areaPrevisionRoute]);
+
+	useEffect(() => {
+		if(routeError !== null) {
+			alert("Erreur lors du calcul de l'itinéraire : " + routeError);
+			setRouteLoading(false);
+			setRouteError(null);
+			// TODO: clearpoitn ?
+		}
+	}, [routeError]);
 
   // Final cleanup
   useEffect(() => {
@@ -915,30 +919,34 @@ function RouteInfoCard({ distance, duration }: { distance: number; duration: num
           </Command>
         )}
 
-        {isRouteSearchBarOpen && (
-          <>
-            <div className="flex items-center gap-2 p-2">
-              <Checkbox
-                disabled={!startLocation || !endLocation}
-                onCheckedChange={(checked) => {
-                  setRouteFilteredByRain(!checked);
-                  // TODO: Rafraîchir l'itinéraire avec le filtre
-                }}
-              />
-              <Label>Éviter la pluie</Label>
-            </div>
-            <Button
-              disabled={!startLocation || !endLocation || routeLoading}
-              onClick={fetchRoute}
-              className="w-full"
-            >
-              {routeLoading ? "Calcul en cours..." : "Rechercher l’itinéraire"}
-            </Button>
-          </>
-        )}
-      </div>
-    );
-  }
+				{isRouteSearchBarOpen && (
+					<>
+						<div className="flex items-center gap-2 p-2">
+							<Checkbox
+								disabled={routeLoading || routeError != null}
+								checked={avoidConditionRain}
+								onCheckedChange={(checked) => { setAvoidConditionRain(!!checked); }} />
+							<Label>Éviter la pluie</Label>
+						</div>
+						<div className="flex items-center gap-2 p-2">
+							<Checkbox
+								disabled={routeLoading || routeError != null || !avoidConditionRain}
+								checked={dynamicMode}
+								onCheckedChange={(checked) => { setDynamicMode(!!checked); }} />
+							<Label>Mode prévisionnel</Label>
+						</div>
+						<Button
+							disabled={!startLocation || !endLocation || routeLoading}
+							onClick={fetchRoute}
+							className="w-full">
+							{routeLoading ? "Calcul en cours..." : "Rechercher l’itinéraire"}
+						</Button>
+					</>
+				)}
+
+			</div>
+		);
+	}
 
   function filterLayer() {
     return (
