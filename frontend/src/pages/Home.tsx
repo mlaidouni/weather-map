@@ -780,7 +780,11 @@ const Home: React.FC = () => {
 										</Button>
 
 									</div>
-									<RouteInfoCard distance={distance} duration={duration} />
+
+									{/* Affichage de la distance s'il y a un chemin */}
+									{routes.length > 0 && routes[0] && (
+										<RouteInfoCard distance={distance} duration={duration} />
+									)} 
 
 									{/* Affichage conditionnel */}
 									{selectedMeteoView === "start" &&
