@@ -23,8 +23,8 @@ const DEBUG = import.meta.env.DEBUG === 'true';
 // Icône de départ (flèche verte)
 // Icône de départ (verte)
 const startIcon = L.icon({
-  iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png",
-  shadowUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png",
+  iconUrl: "../img/marker-icon-2x-green.png",
+  shadowUrl: "../img/marker-shadow.png",
   iconSize: [25, 41],
   iconAnchor: [12, 41],
   popupAnchor: [1, -34],
@@ -33,8 +33,8 @@ const startIcon = L.icon({
 
 // Icône d’arrivée (rouge)
 const endIcon = L.icon({
-  iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png",
-  shadowUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png",
+  iconUrl: "../img/marker-icon-2x-red.png",
+  shadowUrl: "../img/marker-shadow.png",
   iconSize: [25, 41],
   iconAnchor: [12, 41],
   popupAnchor: [1, -34],
