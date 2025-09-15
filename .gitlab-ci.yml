@@ -60,4 +60,4 @@ deploy:
   tags:
     - weather-ci
   only:
-    - dev
+    - branch/deploy
